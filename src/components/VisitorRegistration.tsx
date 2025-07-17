@@ -18,6 +18,7 @@ const VisitorRegistration: React.FC<VisitorRegistrationProps> = ({ onRegister })
   
   const [photo, setPhoto] = useState<string | null>(null);
   const [showCamera, setShowCamera] = useState(false);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -51,13 +52,21 @@ const VisitorRegistration: React.FC<VisitorRegistrationProps> = ({ onRegister })
 
   const startCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          width: { ideal: 640 },
+          height: { ideal: 480 }
+        } 
+      });
+      
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        setCameraStream(stream);
         setShowCamera(true);
       }
     } catch (err) {
       console.error('Error accessing camera:', err);
+      alert('Unable to access camera. Please ensure camera permissions are granted.');
     }
   };
 
@@ -70,16 +79,26 @@ const VisitorRegistration: React.FC<VisitorRegistrationProps> = ({ onRegister })
       canvas.height = video.videoHeight;
       
       const ctx = canvas.getContext('2d');
-      ctx?.drawImage(video, 0, 0);
-      
-      const imageData = canvas.toDataURL('image/jpeg');
-      setPhoto(imageData);
-      setShowCamera(false);
-      
-      // Stop camera stream
-      const stream = video.srcObject as MediaStream;
-      stream.getTracks().forEach(track => track.stop());
+      if (ctx) {
+        ctx.drawImage(video, 0, 0);
+        const imageData = canvas.toDataURL('image/jpeg', 0.8);
+        setPhoto(imageData);
+        stopCamera();
+      }
     }
+  };
+
+  const stopCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      setCameraStream(null);
+    }
+    setShowCamera(false);
+  };
+
+  const retakePhoto = () => {
+    setPhoto(null);
+    startCamera();
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -123,59 +142,75 @@ const VisitorRegistration: React.FC<VisitorRegistrationProps> = ({ onRegister })
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Photo Capture Section */}
           <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-            <h3 className="text-lg font-semibold mb-4">Mandatory Photo Capture</h3>
+            <h3 className="text-lg font-semibold mb-4 flex items-center justify-center">
+              <Camera className="w-5 h-5 mr-2" />
+              Mandatory Photo Capture
+            </h3>
             
             {!photo && !showCamera && (
-              <button
-                type="button"
-                onClick={startCamera}
-                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center mx-auto"
-              >
-                <Camera className="w-5 h-5 mr-2" />
-                Start Camera
-              </button>
+              <div className="space-y-4">
+                <div className="w-48 h-48 bg-gray-100 rounded-lg mx-auto flex items-center justify-center">
+                  <Camera className="w-12 h-12 text-gray-400" />
+                </div>
+                <button
+                  type="button"
+                  onClick={startCamera}
+                  className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center mx-auto"
+                >
+                  <Camera className="w-5 h-5 mr-2" />
+                  Start Camera
+                </button>
+              </div>
             )}
             
             {showCamera && (
               <div className="space-y-4">
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  className="w-full max-w-md mx-auto rounded-lg"
-                />
-                <button
-                  type="button"
-                  onClick={capturePhoto}
-                  className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors"
-                >
-                  Capture Photo
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowCamera(false);
-                    const stream = videoRef.current?.srcObject as MediaStream;
-                    stream?.getTracks().forEach(track => track.stop());
-                  }}
-                  className="bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition-colors ml-3"
-                >
-                  Cancel
-                </button>
+                <div className="relative">
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    className="w-full max-w-md mx-auto rounded-lg border-2 border-blue-300"
+                  />
+                </div>
+                <div className="flex space-x-3 justify-center">
+                  <button
+                    type="button"
+                    onClick={capturePhoto}
+                    className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors flex items-center"
+                  >
+                    <Camera className="w-5 h-5 mr-2" />
+                    Capture Photo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={stopCamera}
+                    className="bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
             )}
             
             {photo && (
               <div className="space-y-4">
-                <img src={photo} alt="Visitor" className="w-48 h-48 object-cover rounded-lg mx-auto" />
+                <div className="relative">
+                  <img 
+                    src={photo} 
+                    alt="Captured visitor photo" 
+                    className="w-48 h-48 object-cover rounded-lg mx-auto border-2 border-green-300" 
+                  />
+                  <div className="absolute top-2 right-2 bg-green-500 text-white rounded-full p-1">
+                    <Camera className="w-4 h-4" />
+                  </div>
+                </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    setPhoto(null);
-                    startCamera();
-                  }}
-                  className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 transition-colors"
+                  onClick={retakePhoto}
+                  className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 transition-colors flex items-center mx-auto"
                 >
+                  <Camera className="w-4 h-4 mr-2" />
                   Retake Photo
                 </button>
               </div>
@@ -198,6 +233,7 @@ const VisitorRegistration: React.FC<VisitorRegistrationProps> = ({ onRegister })
                 onChange={handleInputChange}
                 required
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Enter visitor's full name"
               />
             </div>
             
@@ -213,6 +249,7 @@ const VisitorRegistration: React.FC<VisitorRegistrationProps> = ({ onRegister })
                 onChange={handleInputChange}
                 required
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="+1-555-0123"
               />
             </div>
             
@@ -228,6 +265,7 @@ const VisitorRegistration: React.FC<VisitorRegistrationProps> = ({ onRegister })
                 onChange={handleInputChange}
                 required
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="visitor@example.com"
               />
             </div>
             
@@ -242,6 +280,7 @@ const VisitorRegistration: React.FC<VisitorRegistrationProps> = ({ onRegister })
                 value={formData.companyName}
                 onChange={handleInputChange}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Company name (optional)"
               />
             </div>
           </div>
@@ -298,15 +337,32 @@ const VisitorRegistration: React.FC<VisitorRegistrationProps> = ({ onRegister })
                 onChange={handleInputChange}
                 required
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Name of the employee to visit"
               />
             </div>
           </div>
 
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h4 className="font-semibold text-blue-900 mb-2">Registration Process:</h4>
+            <ol className="text-sm text-blue-800 space-y-1">
+              <li>1. Capture visitor photo (mandatory)</li>
+              <li>2. Fill in all required information</li>
+              <li>3. Submit registration form</li>
+              <li>4. Approval request sent to host employee</li>
+              <li>5. Digital badge generated upon approval</li>
+            </ol>
+          </div>
+
           <button
             type="submit"
-            className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            disabled={!photo}
+            className={`w-full py-3 rounded-lg font-medium transition-colors ${
+              photo 
+                ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            }`}
           >
-            Register Visitor
+            {photo ? 'Register Visitor' : 'Photo Required to Register'}
           </button>
         </form>
       </div>
