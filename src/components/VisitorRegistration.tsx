@@ -151,6 +151,17 @@ const VisitorRegistration: React.FC<VisitorRegistrationProps> = ({ onRegister })
                 >
                   Capture Photo
                 </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCamera(false);
+                    const stream = videoRef.current?.srcObject as MediaStream;
+                    stream?.getTracks().forEach(track => track.stop());
+                  }}
+                  className="bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition-colors ml-3"
+                >
+                  Cancel
+                </button>
               </div>
             )}
             
