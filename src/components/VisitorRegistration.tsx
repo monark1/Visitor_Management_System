@@ -17,6 +17,8 @@ const VisitorRegistration: React.FC<VisitorRegistrationProps> = ({ onRegister })
   });
   
   const [photo, setPhoto] = useState<string | null>(null);
+  const [showCamera, setShowCamera] = useState(false);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -40,7 +42,7 @@ const VisitorRegistration: React.FC<VisitorRegistrationProps> = ({ onRegister })
     'Legal'
   ];
 
-  const capturePhoto = async () => {
+  const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
@@ -49,136 +51,23 @@ const VisitorRegistration: React.FC<VisitorRegistrationProps> = ({ onRegister })
         } 
       });
       
-      // Create a video element to capture the photo
-      const video = document.createElement('video');
-      video.srcObject = stream;
-      video.play();
+      setCameraStream(stream);
+      setShowCamera(true);
       
-      video.onloadedmetadata = () => {
-        const canvas = canvasRef.current;
-        if (canvas) {
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(video, 0, 0);
-            const imageData = canvas.toDataURL('image/jpeg', 0.8);
-            setPhoto(imageData);
-            
-            // Stop the camera stream
-            stream.getTracks().forEach(track => track.stop());
-          }
-        }
-      };
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
     } catch (err) {
       console.error('Error accessing camera:', err);
       alert('Unable to access camera. Please ensure camera permissions are granted.');
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const retakePhoto = () => {
-    setPhoto(null);
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const capturePhoto = () => {
+    const canvas = canvasRef.current;
+    const video = videoRef.current;
     
-    if (!photo) {
-      alert('Please capture a photo before registering');
-      return;
-    }
-
-    const visitor = {
-      id: Date.now().toString(),
-      ...formData,
-      photo,
-      checkInTime: new Date(),
-      status: 'pending',
-      badgeNumber: `VIS-${Date.now().toString().slice(-6)}`,
-      qrCode: `QR-${Date.now()}`,
-    };
-
-    onRegister(visitor);
-    
-    // Reset form
-    setFormData({
-      fullName: '',
-      contactNumber: '',
-      email: '',
-      purpose: '',
-      hostEmployeeName: '',
-      hostDepartment: '',
-      companyName: '',
-    });
-    setPhoto(null);
-  };
-
-  return (
-    <div className="max-w-2xl mx-auto">
-      <div className="bg-white rounded-lg shadow-sm border p-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Visitor Registration</h1>
-        
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Photo Capture Section */}
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-            <h3 className="text-lg font-semibold mb-4 flex items-center justify-center">
-              <Camera className="w-5 h-5 mr-2" />
-              Mandatory Photo Capture
-            </h3>
-            
-            {!photo && (
-              <div className="space-y-4">
-                <div className="w-48 h-48 bg-gray-100 rounded-lg mx-auto flex items-center justify-center">
-                  <Camera className="w-12 h-12 text-gray-400" />
-                </div>
-                <button
-                  type="button"
-                  onClick={capturePhoto}
-                  className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center mx-auto"
-                >
-                  <Camera className="w-5 h-5 mr-2" />
-                  Capture Photo
-                </button>
-              </div>
-            )}
-            
-            {photo && (
-              <div className="space-y-4">
-                <div className="relative">
-                  <img 
-                    src={photo} 
-                    alt="Captured visitor photo" 
-                    className="w-48 h-48 object-cover rounded-lg mx-auto border-2 border-green-300" 
-                  />
-                  <div className="absolute top-2 right-2 bg-green-500 text-white rounded-full p-1">
-                    <Camera className="w-4 h-4" />
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={retakePhoto}
-                  className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 transition-colors flex items-center mx-auto"
-                >
-                  <Camera className="w-4 h-4 mr-2" />
-                  Retake Photo
-                </button>
-              </div>
-            )}
-            
-            <canvas ref={canvasRef} className="hidden" />
-          </div>
-      const canvas = canvasRef.current;
-      const video = videoRef.current;
-      
+    if (canvas && video) {
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       
@@ -203,6 +92,14 @@ const VisitorRegistration: React.FC<VisitorRegistrationProps> = ({ onRegister })
   const retakePhoto = () => {
     setPhoto(null);
     startCamera();
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
