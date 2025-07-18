@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Shield, User, Mail, Lock, Building, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { LoginCredentials, SignupCredentials } from '../types/auth';
+import ThemeToggle from './ThemeToggle';
 
 const AuthForm: React.FC = () => {
   const { login, signup, isLoading } = useAuth();
