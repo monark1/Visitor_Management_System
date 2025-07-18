@@ -55,11 +55,11 @@ const Dashboard: React.FC<DashboardProps> = () => {
         {getFilteredStats().map((stat, index) => {
           const Icon = stat.icon;
           return (
-            <div key={index} className="bg-white rounded-lg shadow-sm p-6 border">
+            <div key={index} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 border border-gray-200 dark:border-gray-700 transition-colors">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">{stat.label}</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-1">{stat.value}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">{stat.label}</p>
+                  <p className="text-3xl font-bold text-gray-900 dark:text-white mt-1">{stat.value}</p>
                 </div>
                 <div className={`p-3 rounded-lg ${stat.color}`}>
                   <Icon className="w-6 h-6 text-white" />
@@ -72,28 +72,28 @@ const Dashboard: React.FC<DashboardProps> = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Visitors */}
-        <div className="bg-white rounded-lg shadow-sm p-6 border">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 border border-gray-200 dark:border-gray-700 transition-colors">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
             {user.role === 'employee' ? 'My Recent Visitors' : 'Recent Visitors'}
           </h2>
           {user.role === 'employee' && (
-            <p className="text-sm text-gray-600 mb-4">Visitors hosted by you</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Visitors hosted by you</p>
           )}
           <div className="space-y-3">
             {recentVisitors.map((visitor, index) => (
-              <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg transition-colors">
                 <div className="flex-1">
-                  <h3 className="font-medium text-gray-900">{visitor.name}</h3>
-                  <p className="text-sm text-gray-600">{visitor.company} • Host: {visitor.host}</p>
+                  <h3 className="font-medium text-gray-900 dark:text-white">{visitor.name}</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">{visitor.company} • Host: {visitor.host}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm text-gray-500">{visitor.time}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{visitor.time}</p>
                   <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                     visitor.status === 'checked-in' 
-                      ? 'bg-green-100 text-green-800'
+                      ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
                       : visitor.status === 'approved'
-                      ? 'bg-blue-100 text-blue-800'
-                      : 'bg-gray-100 text-gray-800'
+                      ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
                   }`}>
                     {visitor.status.replace('-', ' ')}
                   </span>
@@ -104,12 +104,12 @@ const Dashboard: React.FC<DashboardProps> = () => {
         </div>
 
         {/* Analytics Chart */}
-        <div className="bg-white rounded-lg shadow-sm p-6 border">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Weekly Visitor Trends</h2>
-          <div className="flex items-center justify-center h-48 bg-gray-50 rounded-lg">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 border border-gray-200 dark:border-gray-700 transition-colors">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Weekly Visitor Trends</h2>
+          <div className="flex items-center justify-center h-48 bg-gray-50 dark:bg-gray-700 rounded-lg transition-colors">
             <div className="text-center">
-              <TrendingUp className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-              <p className="text-gray-600">Chart visualization would go here</p>
+              <TrendingUp className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-2" />
+              <p className="text-gray-600 dark:text-gray-400">Chart visualization would go here</p>
             </div>
           </div>
         </div>
