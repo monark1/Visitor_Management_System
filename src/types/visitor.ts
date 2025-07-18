@@ -43,7 +43,12 @@ export interface PreApprovalRequest {
     endTime: string;
   };
   hostEmployeeId: string;
+  hostEmployeeName: string;
   status: 'active' | 'expired' | 'used';
   qrCode: string;
+  qrSent: boolean;
+  qrSentAt?: Date;
+  qrSentStatus: 'not-sent' | 'sending' | 'sent' | 'failed';
+  validUntil: Date;
   createdAt: Date;
 }
