@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Calendar, Clock, QrCode, Mail, Plus, CheckCircle } from 'lucide-react';
+import { Calendar, Clock, QrCode, Mail, Plus, CheckCircle, Send, AlertCircle } from 'lucide-react';
 
 const PreApproval: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
+  const [emailStatus, setEmailStatus] = useState<{[key: string]: 'sending' | 'sent' | 'error'}>({});
   const [formData, setFormData] = useState({
     visitorName: '',
     visitorEmail: '',
@@ -90,10 +91,94 @@ const PreApproval: React.FC = () => {
     });
   };
 
-  const sendQRCode = (approval: any) => {
-    alert(`QR Code sent to ${approval.visitorEmail}`);
+  const sendQRCode = async (approval: any) => {
+    setEmailStatus(prev => ({ ...prev, [approval.id]: 'sending' }));
+    
+    try {
+      // Simulate API call to send email with QR code
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // In a real application, this would call your email service API
+      // Example: await emailService.sendQRCode(approval.visitorEmail, approval.qrCode);
+      
+      // Generate QR code content (in production, this would be a proper QR code image)
+      const qrCodeContent = `VMS-PREAPPROVAL:${approval.id}:${approval.visitorName}:${approval.scheduledDate.toISOString()}:${approval.timeWindow.startTime}-${approval.timeWindow.endTime}`;
+      
+      // Simulate successful email sending
+      console.log('Email sent with QR code:', {
+        to: approval.visitorEmail,
+        subject: 'VMS Pre-Approval - Your Visit QR Code',
+        qrCode: approval.qrCode,
+        content: qrCodeContent,
+        visitDetails: {
+          visitorName: approval.visitorName,
+          date: approval.scheduledDate.toLocaleDateString(),
+          time: `${approval.timeWindow.startTime} - ${approval.timeWindow.endTime}`,
+          purpose: approval.purpose
+        }
+      });
+      
+      setEmailStatus(prev => ({ ...prev, [approval.id]: 'sent' }));
+      
+      // Show success message
+      alert(`✅ QR Code successfully sent to ${approval.visitorEmail}!\n\nEmail includes:\n• Digital QR code for entry\n• Visit details and instructions\n• Validity period: ${approval.scheduledDate.toLocaleDateString()}`);
+      
+    } catch (error) {
+      console.error('Failed to send QR code email:', error);
+      setEmailStatus(prev => ({ ...prev, [approval.id]: 'error' }));
+      alert(`❌ Failed to send QR code to ${approval.visitorEmail}. Please try again.`);
+    }
   };
 
+  const getEmailButtonContent = (approvalId: string) => {
+    const status = emailStatus[approvalId];
+    
+    switch (status) {
+      case 'sending':
+        return (
+          <>
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+            Sending...
+          </>
+        );
+      case 'sent':
+        return (
+          <>
+            <CheckCircle className="w-4 h-4 mr-2" />
+            Sent Successfully
+          </>
+        );
+      case 'error':
+        return (
+          <>
+            <AlertCircle className="w-4 h-4 mr-2" />
+            Retry Send
+          </>
+        );
+      default:
+        return (
+          <>
+            <Send className="w-4 h-4 mr-2" />
+            Send QR Code
+          </>
+        );
+    }
+  };
+
+  const getEmailButtonStyle = (approvalId: string) => {
+    const status = emailStatus[approvalId];
+    
+    switch (status) {
+      case 'sending':
+        return 'bg-gray-400 cursor-not-allowed';
+      case 'sent':
+        return 'bg-green-600 hover:bg-green-700';
+      case 'error':
+        return 'bg-red-600 hover:bg-red-700';
+      default:
+        return 'bg-blue-600 hover:bg-blue-700';
+    }
+  };
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -276,11 +361,25 @@ const PreApproval: React.FC = () => {
 
             <button
               onClick={() => sendQRCode(approval)}
-              className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
+              disabled={emailStatus[approval.id] === 'sending'}
+              className={`w-full text-white py-2 rounded-lg transition-colors flex items-center justify-center ${getEmailButtonStyle(approval.id)}`}
             >
-              <Mail className="w-4 h-4 mr-2" />
-              Send QR Code
+              {getEmailButtonContent(approval.id)}
             </button>
+            
+            {emailStatus[approval.id] === 'sent' && (
+              <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-sm text-green-800">
+                <CheckCircle className="w-4 h-4 inline mr-1" />
+                QR code sent to {approval.visitorEmail}
+              </div>
+            )}
+            
+            {emailStatus[approval.id] === 'error' && (
+              <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-800">
+                <AlertCircle className="w-4 h-4 inline mr-1" />
+                Failed to send email. Please check the email address and try again.
+              </div>
+            )}
           </div>
         ))}
       </div>
