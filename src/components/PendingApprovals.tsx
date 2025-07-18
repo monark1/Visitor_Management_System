@@ -1,11 +1,16 @@
 import React, { useState } from 'react';
 import { Clock, CheckCircle, XCircle, User, Building, Mail, Phone } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 interface PendingApprovalsProps {
-  userRole: 'admin' | 'employee' | 'security';
+  userRole?: 'admin' | 'employee' | 'guard';
 }
 
-const PendingApprovals: React.FC<PendingApprovalsProps> = ({ userRole }) => {
+const PendingApprovals: React.FC<PendingApprovalsProps> = () => {
+  const { user } = useAuth();
+  
+  if (!user) return null;
+
   const [pendingVisitors] = useState([
     {
       id: '1',
@@ -53,6 +58,15 @@ const PendingApprovals: React.FC<PendingApprovalsProps> = ({ userRole }) => {
 
   const [notifications, setNotifications] = useState<string[]>([]);
 
+  // Filter visitors based on user role
+  const getFilteredVisitors = () => {
+    if (user.role === 'employee') {
+      // Employee sees only visitors they are hosting
+      return pendingVisitors.filter(visitor => visitor.hostEmployeeName === user.name);
+    }
+    return pendingVisitors;
+  };
+
   const handleApproval = (visitorId: string, approved: boolean) => {
     const visitor = pendingVisitors.find(v => v.id === visitorId);
     if (visitor) {
@@ -68,8 +82,11 @@ const PendingApprovals: React.FC<PendingApprovalsProps> = ({ userRole }) => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">Pending Approvals</h1>
+        {user.role === 'employee' && (
+          <p className="text-sm text-gray-600">Visitors requesting to meet with you</p>
+        )}
         <div className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm font-medium">
-          {pendingVisitors.length} pending
+          {getFilteredVisitors().length} pending
         </div>
       </div>
 
@@ -87,7 +104,7 @@ const PendingApprovals: React.FC<PendingApprovalsProps> = ({ userRole }) => {
 
       {/* Pending Visitors Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {pendingVisitors.map(visitor => (
+        {getFilteredVisitors().map(visitor => (
           <div key={visitor.id} className="bg-white rounded-lg shadow-sm border p-6">
             <div className="flex items-start space-x-4">
               <img
@@ -153,7 +170,7 @@ const PendingApprovals: React.FC<PendingApprovalsProps> = ({ userRole }) => {
         ))}
       </div>
 
-      {pendingVisitors.length === 0 && (
+      {getFilteredVisitors().length === 0 && (
         <div className="text-center py-12">
           <Clock className="w-12 h-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">No Pending Approvals</h3>

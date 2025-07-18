@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import AuthForm from './components/AuthForm';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import VisitorRegistration from './components/VisitorRegistration';
@@ -7,32 +9,85 @@ import PreApproval from './components/PreApproval';
 import AllVisitors from './components/AllVisitors';
 import Settings from './components/Settings';
 
-function App() {
+const AppContent: React.FC = () => {
+  const { isAuthenticated, user, isLoading } = useAuth();
   const [currentView, setCurrentView] = useState('dashboard');
-  const [userRole] = useState<'admin' | 'employee' | 'security'>('admin');
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading VMS...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || !user) {
+    return <AuthForm />;
+  }
 
   const handleVisitorRegistration = (visitor: any) => {
     console.log('New visitor registered:', visitor);
-    // Here you would typically send this to your backend
-    alert(`Visitor ${visitor.fullName} has been registered and approval request sent to ${visitor.hostEmployeeName}`);
   };
 
   const renderCurrentView = () => {
     switch (currentView) {
       case 'dashboard':
-        return <Dashboard userRole={userRole} />;
+        return <Dashboard />;
       case 'register':
+        // Only guards and admins can register visitors
+        if (user.role !== 'guard' && user.role !== 'admin') {
+          return (
+            <div className="text-center py-12">
+              <p className="text-gray-600">Access denied. Only security guards and administrators can register visitors.</p>
+            </div>
+          );
+        }
         return <VisitorRegistration onRegister={handleVisitorRegistration} />;
       case 'approvals':
-        return <PendingApprovals userRole={userRole} />;
+        // Only employees and admins can handle approvals
+        if (user.role !== 'employee' && user.role !== 'admin') {
+          return (
+            <div className="text-center py-12">
+              <p className="text-gray-600">Access denied. Only employees and administrators can handle approvals.</p>
+            </div>
+          );
+        }
+        return <PendingApprovals />;
       case 'pre-approve':
+        // Only employees and admins can pre-approve
+        if (user.role !== 'employee' && user.role !== 'admin') {
+          return (
+            <div className="text-center py-12">
+              <p className="text-gray-600">Access denied. Only employees and administrators can pre-approve visitors.</p>
+            </div>
+          );
+        }
         return <PreApproval />;
       case 'visitors':
+        // Only admins can view all visitors
+        if (user.role !== 'admin') {
+          return (
+            <div className="text-center py-12">
+              <p className="text-gray-600">Access denied. Only administrators can view all visitors.</p>
+            </div>
+          );
+        }
         return <AllVisitors />;
       case 'settings':
+        // Only admins can access settings
+        if (user.role !== 'admin') {
+          return (
+            <div className="text-center py-12">
+              <p className="text-gray-600">Access denied. Only administrators can access settings.</p>
+            </div>
+          );
+        }
         return <Settings />;
       default:
-        return <Dashboard userRole={userRole} />;
+        return <Dashboard />;
     }
   };
 
@@ -40,10 +95,17 @@ function App() {
     <Layout 
       currentView={currentView} 
       onViewChange={setCurrentView}
-      userRole={userRole}
     >
       {renderCurrentView()}
     </Layout>
+  );
+};
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 

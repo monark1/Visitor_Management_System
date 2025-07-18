@@ -1,11 +1,16 @@
 import React, { useState, useRef } from 'react';
 import { Camera, User, Phone, Mail, Building, Users, Clock, QrCode } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 interface VisitorRegistrationProps {
   onRegister: (visitor: any) => void;
 }
 
 const VisitorRegistration: React.FC<VisitorRegistrationProps> = ({ onRegister }) => {
+  const { user } = useAuth();
+  
+  if (!user) return null;
+
   const [formData, setFormData] = useState({
     fullName: '',
     contactNumber: '',
@@ -120,6 +125,16 @@ const VisitorRegistration: React.FC<VisitorRegistrationProps> = ({ onRegister })
       qrCode: `QR-${Date.now()}`,
     };
 
+    // For guards, show success message
+    if (user.role === 'guard') {
+      alert(`Visitor ${visitor.fullName} has been registered successfully! Approval request sent to ${visitor.hostEmployeeName}.`);
+    }
+    
+    // For admin, show admin-specific message
+    if (user.role === 'admin') {
+      alert(`Visitor ${visitor.fullName} has been registered by admin. Processing approval...`);
+    }
+
     onRegister(visitor);
     
     // Reset form
@@ -139,6 +154,12 @@ const VisitorRegistration: React.FC<VisitorRegistrationProps> = ({ onRegister })
     <div className="max-w-2xl mx-auto">
       <div className="bg-white rounded-lg shadow-sm border p-6">
         <h1 className="text-2xl font-bold text-gray-900 mb-6">Visitor Registration</h1>
+        
+        {user.role === 'guard' && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <p className="text-blue-800 text-sm">👮‍♂️ Security Guard Mode: Register visitors upon arrival</p>
+          </div>
+        )}
         
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Photo Capture Section */}

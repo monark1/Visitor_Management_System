@@ -1,11 +1,16 @@
 import React from 'react';
 import { Users, Clock, CheckCircle, AlertCircle, TrendingUp } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 interface DashboardProps {
-  userRole: 'admin' | 'employee' | 'security';
+  userRole?: 'admin' | 'employee' | 'guard';
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ userRole }) => {
+const Dashboard: React.FC<DashboardProps> = () => {
+  const { user } = useAuth();
+  
+  if (!user) return null;
+
   const stats = [
     { label: 'Total Visitors Today', value: '24', icon: Users, color: 'bg-blue-500' },
     { label: 'Pending Approvals', value: '3', icon: Clock, color: 'bg-yellow-500' },
@@ -18,6 +23,18 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole }) => {
     { name: 'Sarah Wilson', company: 'Marketing Plus', host: 'Bob Smith', time: '11:15 AM', status: 'approved' },
     { name: 'Mike Johnson', company: 'Consulting Ltd', host: 'Carol Davis', time: '9:45 AM', status: 'checked-out' },
   ];
+
+  // Filter data based on user role
+  const getFilteredStats = () => {
+    if (user.role === 'employee') {
+      // Employee sees only their visitors
+      return stats.map(stat => ({
+        ...stat,
+        value: stat.label.includes('Pending') ? '1' : Math.floor(parseInt(stat.value) / 3).toString()
+      }));
+    }
+    return stats;
+  };
 
   return (
     <div className="space-y-6">
@@ -35,7 +52,7 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole }) => {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, index) => {
+        {getFilteredStats().map((stat, index) => {
           const Icon = stat.icon;
           return (
             <div key={index} className="bg-white rounded-lg shadow-sm p-6 border">
@@ -56,7 +73,12 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole }) => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Visitors */}
         <div className="bg-white rounded-lg shadow-sm p-6 border">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Recent Visitors</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">
+            {user.role === 'employee' ? 'My Recent Visitors' : 'Recent Visitors'}
+          </h2>
+          {user.role === 'employee' && (
+            <p className="text-sm text-gray-600 mb-4">Visitors hosted by you</p>
+          )}
           <div className="space-y-3">
             {recentVisitors.map((visitor, index) => (
               <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
