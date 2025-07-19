@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { Calendar, Clock, QrCode, Mail, Plus, CheckCircle, Send, AlertCircle, User, Building } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 import { generateQRCodeData, generateQRCodeImage } from '../utils/qrGenerator';
 import { generateQREmailTemplate, sendQREmail } from '../services/emailService';
-import { PreApprovalRequest } from '../types/visitor';
 
 const PreApproval: React.FC = () => {
   const { user } = useAuth();
   const [showForm, setShowForm] = useState(false);
   const [emailStatus, setEmailStatus] = useState<{[key: string]: 'not-sent' | 'sending' | 'sent' | 'failed'}>({});
+  const [preApprovals, setPreApprovals] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({
     visitorName: '',
     visitorEmail: '',
@@ -19,43 +21,35 @@ const PreApproval: React.FC = () => {
     endTime: '',
   });
 
-  const [preApprovals, setPreApprovals] = useState<PreApprovalRequest[]>([
-    {
-      id: '1',
-      visitorName: 'David Wilson',
-      visitorEmail: 'david.wilson@example.com',
-      visitorPhone: '+1-555-0123',
-      purpose: 'Client Meeting',
-      scheduledDate: new Date('2024-01-15'),
-      timeWindow: { startTime: '10:00', endTime: '12:00' },
-      hostEmployeeId: user?.id || '1',
-      hostEmployeeName: user?.name || 'John Employee',
-      status: 'active' as const,
-      qrCode: 'QR-PRE-001',
-      qrSent: false,
-      qrSentStatus: 'not-sent' as const,
-      validUntil: new Date('2024-01-15T23:59:59'),
-      createdAt: new Date(),
-    },
-    {
-      id: '2',
-      visitorName: 'Emma Thompson',
-      visitorEmail: 'emma.thompson@vendor.com',
-      visitorPhone: '+1-555-0456',
-      purpose: 'Vendor Meeting',
-      scheduledDate: new Date('2024-01-16'),
-      timeWindow: { startTime: '14:00', endTime: '16:00' },
-      hostEmployeeId: user?.id || '1',
-      hostEmployeeName: user?.name || 'John Employee',
-      status: 'active' as const,
-      qrCode: 'QR-PRE-002',
-      qrSent: true,
-      qrSentAt: new Date(),
-      qrSentStatus: 'sent' as const,
-      validUntil: new Date('2024-01-16T23:59:59'),
-      createdAt: new Date(),
-    },
-  ]);
+  React.useEffect(() => {
+    fetchPreApprovals();
+  }, [user]);
+
+  const fetchPreApprovals = async () => {
+    try {
+      let query = supabase
+        .from('pre_approvals')
+        .select('*');
+
+      // Filter based on user role
+      if (user?.role === 'employee') {
+        query = query.eq('host_employee_id', user.id);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching pre-approvals:', error);
+        return;
+      }
+
+      setPreApprovals(data || []);
+    } catch (error) {
+      console.error('Error in fetchPreApprovals:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const purposes = [
     'Business Meeting',
@@ -78,79 +72,132 @@ const PreApproval: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Calculate valid until date (end of scheduled day)
-    const scheduledDate = new Date(formData.scheduledDate);
-    const validUntil = new Date(scheduledDate);
-    validUntil.setHours(23, 59, 59, 999);
-    
-    const newPreApproval: PreApprovalRequest = {
-      id: Date.now().toString(),
-      visitorName: formData.visitorName,
-      visitorEmail: formData.visitorEmail,
-      visitorPhone: formData.visitorPhone,
-      purpose: formData.purpose,
-      scheduledDate: scheduledDate,
-      timeWindow: {
-        startTime: formData.startTime,
-        endTime: formData.endTime,
-      },
-      hostEmployeeId: user?.id || '1',
-      hostEmployeeName: user?.name || 'Employee',
-      status: 'active' as const,
-      qrCode: `QR-PRE-${Date.now().toString().slice(-6)}`,
-      qrSent: false,
-      qrSentStatus: 'not-sent' as const,
-      validUntil: validUntil,
-      createdAt: new Date(),
-    };
+    createPreApproval();
+  };
 
-    setPreApprovals(prev => [newPreApproval, ...prev]);
-    setShowForm(false);
-    setFormData({
-      visitorName: '',
-      visitorEmail: '',
-      visitorPhone: '',
-      purpose: '',
-      scheduledDate: '',
-      startTime: '',
-      endTime: '',
-    });
+  const createPreApproval = async () => {
+    try {
+      // Calculate valid until date (end of scheduled day)
+      const scheduledDate = new Date(formData.scheduledDate);
+      const validUntil = new Date(scheduledDate);
+      validUntil.setHours(23, 59, 59, 999);
+      
+      const { data: newPreApproval, error } = await supabase
+        .from('pre_approvals')
+        .insert({
+          visitor_name: formData.visitorName,
+          visitor_email: formData.visitorEmail,
+          visitor_phone: formData.visitorPhone,
+          purpose: formData.purpose,
+          scheduled_date: formData.scheduledDate,
+          start_time: formData.startTime,
+          end_time: formData.endTime,
+          host_employee_id: user?.id || '',
+          host_employee_name: user?.name || 'Employee',
+          qr_code: `QR-PRE-${Date.now().toString().slice(-6)}`,
+          valid_until: validUntil.toISOString(),
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating pre-approval:', error);
+        alert('Failed to create pre-approval. Please try again.');
+        return;
+      }
+
+      setPreApprovals(prev => [newPreApproval, ...prev]);
+      setShowForm(false);
+      setFormData({
+        visitorName: '',
+        visitorEmail: '',
+        visitorPhone: '',
+        purpose: '',
+        scheduledDate: '',
+        startTime: '',
+        endTime: '',
+      });
+    } catch (error) {
+      console.error('Error in createPreApproval:', error);
+      alert('An error occurred while creating the pre-approval.');
+    }
   };
 
   const sendQRCode = async (approval: PreApprovalRequest) => {
     setEmailStatus(prev => ({ ...prev, [approval.id]: 'sending' }));
     
     try {
+      // Update QR sent status in database
+      const { error: updateError } = await supabase
+        .from('pre_approvals')
+        .update({
+          qr_sent_status: 'sending'
+        })
+        .eq('id', approval.id);
+
+      if (updateError) {
+        console.error('Error updating QR status:', updateError);
+      }
+
       // Generate QR code data
-      const qrData = generateQRCodeData(approval);
+      const qrData = generateQRCodeData({
+        id: approval.id,
+        visitorName: approval.visitor_name,
+        visitorEmail: approval.visitor_email,
+        purpose: approval.purpose,
+        scheduledDate: new Date(approval.scheduled_date),
+        timeWindow: {
+          startTime: approval.start_time,
+          endTime: approval.end_time,
+        },
+        hostEmployeeName: approval.host_employee_name,
+        validUntil: new Date(approval.valid_until),
+      });
       
       // Generate QR code image
       const qrCodeImage = await generateQRCodeImage(qrData);
       
       // Generate email template
       const emailTemplate = generateQREmailTemplate(
-        approval.visitorName,
+        approval.visitor_name,
         'Tech Solutions Inc.', // Company name
-        approval.hostEmployeeName,
-        approval.scheduledDate.toLocaleDateString(),
-        approval.timeWindow,
+        approval.host_employee_name,
+        new Date(approval.scheduled_date).toLocaleDateString(),
+        {
+          start: approval.start_time,
+          end: approval.end_time,
+        },
         approval.purpose,
-        approval.validUntil.toLocaleString(),
+        new Date(approval.valid_until).toLocaleString(),
         qrCodeImage
       );
       
       // Send email
-      const result = await sendQREmail(approval.visitorEmail, emailTemplate);
+      const result = await sendQREmail(approval.visitor_email, emailTemplate);
       
       if (result.success) {
-        // Update approval status
+        // Update approval status in database
+        const { error: finalUpdateError } = await supabase
+          .from('pre_approvals')
+          .update({
+            qr_sent: true,
+            qr_sent_at: new Date().toISOString(),
+            qr_sent_status: 'sent'
+          })
+          .eq('id', approval.id);
+
+        if (finalUpdateError) {
+          console.error('Error updating final QR status:', finalUpdateError);
+        }
+
+        // Update local state
         setPreApprovals(prev => prev.map(pa => 
           pa.id === approval.id 
             ? { 
                 ...pa, 
-                qrSent: true, 
-                qrSentAt: new Date(), 
-                qrSentStatus: 'sent' as const 
+                qr_sent: true, 
+                qr_sent_at: new Date().toISOString(), 
+                qr_sent_status: 'sent'
               }
             : pa
         ));
@@ -158,22 +205,39 @@ const PreApproval: React.FC = () => {
         setEmailStatus(prev => ({ ...prev, [approval.id]: 'sent' }));
         
         // Show success message
-        alert(`✅ QR Code successfully sent to ${approval.visitorEmail}!\n\nEmail includes:\n• High-quality QR code image\n• Complete visit details\n• Security instructions\n• Valid until: ${approval.validUntil.toLocaleString()}\n\nMessage ID: ${result.messageId}`);
+        alert(`✅ QR Code successfully sent to ${approval.visitor_email}!\n\nEmail includes:\n• High-quality QR code image\n• Complete visit details\n• Security instructions\n• Valid until: ${new Date(approval.valid_until).toLocaleString()}\n\nMessage ID: ${result.messageId}`);
         
       } else {
+        // Update failure status in database
+        await supabase
+          .from('pre_approvals')
+          .update({
+            qr_sent_status: 'failed'
+          })
+          .eq('id', approval.id);
+
         setEmailStatus(prev => ({ ...prev, [approval.id]: 'failed' }));
         alert(`❌ Failed to send QR code: ${result.error}\n\nPlease check the email address and try again.`);
       }
       
     } catch (error) {
       console.error('Failed to send QR code email:', error);
+      
+      // Update failure status in database
+      await supabase
+        .from('pre_approvals')
+        .update({
+          qr_sent_status: 'failed'
+        })
+        .eq('id', approval.id);
+
       setEmailStatus(prev => ({ ...prev, [approval.id]: 'failed' }));
       alert(`❌ Error generating or sending QR code: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
-  const getEmailButtonContent = (approval: PreApprovalRequest) => {
-    const status = emailStatus[approval.id] || approval.qrSentStatus;
+  const getEmailButtonContent = (approval: any) => {
+    const status = emailStatus[approval.id] || approval.qr_sent_status;
     
     switch (status) {
       case 'sending':
@@ -207,8 +271,8 @@ const PreApproval: React.FC = () => {
     }
   };
 
-  const getEmailButtonStyle = (approval: PreApprovalRequest) => {
-    const status = emailStatus[approval.id] || approval.qrSentStatus;
+  const getEmailButtonStyle = (approval: any) => {
+    const status = emailStatus[approval.id] || approval.qr_sent_status;
     
     switch (status) {
       case 'sending':
@@ -222,15 +286,19 @@ const PreApproval: React.FC = () => {
     }
   };
 
-  const isButtonDisabled = (approval: PreApprovalRequest) => {
-    const status = emailStatus[approval.id] || approval.qrSentStatus;
+  const isButtonDisabled = (approval: any) => {
+    const status = emailStatus[approval.id] || approval.qr_sent_status;
     return status === 'sending';
   };
 
-  // Filter pre-approvals for current employee (if not admin)
-  const filteredPreApprovals = user?.role === 'admin' 
-    ? preApprovals 
-    : preApprovals.filter(pa => pa.hostEmployeeId === user?.id);
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+        <span className="ml-3 text-gray-600">Loading pre-approvals...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -256,7 +324,7 @@ const PreApproval: React.FC = () => {
           <div className="flex items-center">
             <Calendar className="w-8 h-8 text-blue-600 mr-3" />
             <div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{filteredPreApprovals.length}</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{preApprovals.length}</p>
               <p className="text-sm text-gray-600 dark:text-gray-400">Total Pre-Approvals</p>
             </div>
           </div>
@@ -267,7 +335,7 @@ const PreApproval: React.FC = () => {
             <Mail className="w-8 h-8 text-green-600 mr-3" />
             <div>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {filteredPreApprovals.filter(pa => pa.qrSent).length}
+                {preApprovals.filter(pa => pa.qr_sent).length}
               </p>
               <p className="text-sm text-gray-600 dark:text-gray-400">QR Codes Sent</p>
             </div>
@@ -279,7 +347,7 @@ const PreApproval: React.FC = () => {
             <Clock className="w-8 h-8 text-yellow-600 mr-3" />
             <div>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {filteredPreApprovals.filter(pa => pa.status === 'active').length}
+                {preApprovals.filter(pa => pa.status === 'active').length}
               </p>
               <p className="text-sm text-gray-600 dark:text-gray-400">Active Approvals</p>
             </div>
@@ -439,13 +507,13 @@ const PreApproval: React.FC = () => {
 
       {/* Pre-Approvals List */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {filteredPreApprovals.map(approval => (
+        {preApprovals.map(approval => (
           <div key={approval.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
             <div className="flex justify-between items-start mb-4">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{approval.visitorName}</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">{approval.visitorEmail}</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">{approval.visitorPhone}</p>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{approval.visitor_name}</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">{approval.visitor_email}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">{approval.visitor_phone}</p>
               </div>
               <div className="text-right">
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${
@@ -455,7 +523,7 @@ const PreApproval: React.FC = () => {
                 }`}>
                   {approval.status}
                 </span>
-                {approval.qrSent && (
+                {approval.qr_sent && (
                   <div className="mt-1">
                     <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full text-xs">
                       QR Sent
@@ -468,11 +536,11 @@ const PreApproval: React.FC = () => {
             <div className="space-y-3 mb-4">
               <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
                 <Calendar className="w-4 h-4 mr-2" />
-                {approval.scheduledDate.toLocaleDateString()}
+                {new Date(approval.scheduled_date).toLocaleDateString()}
               </div>
               <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
                 <Clock className="w-4 h-4 mr-2" />
-                {approval.timeWindow.startTime} - {approval.timeWindow.endTime}
+                {approval.start_time} - {approval.end_time}
               </div>
               <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
                 <Building className="w-4 h-4 mr-2" />
@@ -480,16 +548,16 @@ const PreApproval: React.FC = () => {
               </div>
               <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
                 <User className="w-4 h-4 mr-2" />
-                Host: {approval.hostEmployeeName}
+                Host: {approval.host_employee_name}
               </div>
               <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
                 <QrCode className="w-4 h-4 mr-2" />
-                QR: {approval.qrCode}
+                QR: {approval.qr_code}
               </div>
-              {approval.qrSentAt && (
+              {approval.qr_sent_at && (
                 <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
                   <Mail className="w-4 h-4 mr-2" />
-                  Sent: {approval.qrSentAt.toLocaleString()}
+                  Sent: {new Date(approval.qr_sent_at).toLocaleString()}
                 </div>
               )}
             </div>
@@ -502,14 +570,14 @@ const PreApproval: React.FC = () => {
               {getEmailButtonContent(approval)}
             </button>
             
-            {(emailStatus[approval.id] === 'sent' || approval.qrSentStatus === 'sent') && (
+            {(emailStatus[approval.id] === 'sent' || approval.qr_sent_status === 'sent') && (
               <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded text-sm text-green-800 dark:text-green-300">
                 <CheckCircle className="w-4 h-4 inline mr-1" />
-                QR code successfully sent to {approval.visitorEmail}
+                QR code successfully sent to {approval.visitor_email}
               </div>
             )}
             
-            {(emailStatus[approval.id] === 'failed' || approval.qrSentStatus === 'failed') && (
+            {(emailStatus[approval.id] === 'failed' || approval.qr_sent_status === 'failed') && (
               <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-sm text-red-800 dark:text-red-300">
                 <AlertCircle className="w-4 h-4 inline mr-1" />
                 Failed to send email. Please check the email address and try again.
@@ -519,7 +587,7 @@ const PreApproval: React.FC = () => {
         ))}
       </div>
 
-      {filteredPreApprovals.length === 0 && (
+      {preApprovals.length === 0 && (
         <div className="text-center py-12">
           <Calendar className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No Pre-Approvals</h3>

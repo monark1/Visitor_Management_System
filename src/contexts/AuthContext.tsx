@@ -1,98 +1,120 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, AuthContextType, LoginCredentials, SignupCredentials } from '../types/auth';
+import { supabase } from '../lib/supabase';
+import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-// Mock database - In production, this would be replaced with actual API calls
-const mockUsers: Array<User & { password: string }> = [
-  {
-    id: '1',
-    name: 'Admin User',
-    email: 'admin@company.com',
-    password: 'admin123',
-    role: 'admin',
-    department: 'IT',
-    createdAt: new Date('2024-01-01'),
-    lastLogin: new Date(),
-  },
-  {
-    id: '2',
-    name: 'John Employee',
-    email: 'john@company.com',
-    password: 'employee123',
-    role: 'employee',
-    department: 'Sales',
-    createdAt: new Date('2024-01-02'),
-    lastLogin: new Date(),
-  },
-  {
-    id: '3',
-    name: 'Security Guard',
-    email: 'guard@company.com',
-    password: 'guard123',
-    role: 'guard',
-    department: 'Security',
-    createdAt: new Date('2024-01-03'),
-    lastLogin: new Date(),
-  },
-];
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing session on app load
-    const savedUser = localStorage.getItem('vms_user');
-    const savedToken = localStorage.getItem('vms_token');
-    
-    if (savedUser && savedToken) {
-      try {
-        const userData = JSON.parse(savedUser);
-        setUser(userData);
-      } catch (error) {
-        console.error('Error parsing saved user data:', error);
-        localStorage.removeItem('vms_user');
-        localStorage.removeItem('vms_token');
+    // Get initial session
+    const getInitialSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        await fetchUserProfile(session.user);
       }
-    }
-    
-    setIsLoading(false);
+      setIsLoading(false);
+    };
+
+    getInitialSession();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        await fetchUserProfile(session.user);
+      } else {
+        setUser(null);
+      }
+      setIsLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
+
+  const fetchUserProfile = async (authUser: SupabaseUser) => {
+    try {
+      const { data: userProfile, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('auth_user_id', authUser.id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching user profile:', error);
+        return;
+      }
+
+      if (userProfile) {
+        const userData: User = {
+          id: userProfile.id,
+          name: userProfile.name,
+          email: userProfile.email,
+          role: userProfile.role,
+          department: userProfile.department,
+          createdAt: new Date(userProfile.created_at),
+          lastLogin: userProfile.last_login ? new Date(userProfile.last_login) : undefined,
+        };
+        setUser(userData);
+
+        // Update last login
+        await supabase
+          .from('users')
+          .update({ last_login: new Date().toISOString() })
+          .eq('id', userProfile.id);
+      }
+    } catch (error) {
+      console.error('Error in fetchUserProfile:', error);
+    }
+  };
 
   const login = async (credentials: LoginCredentials): Promise<boolean> => {
     setIsLoading(true);
     
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Find user in mock database
-      const foundUser = mockUsers.find(
-        u => u.email === credentials.email && 
-             u.password === credentials.password && 
-             u.role === credentials.role
-      );
-      
-      if (foundUser) {
-        const { password, ...userWithoutPassword } = foundUser;
-        const updatedUser = {
-          ...userWithoutPassword,
-          lastLogin: new Date(),
-        };
-        
-        setUser(updatedUser);
-        
-        // Store in localStorage (in production, use secure HTTP-only cookies)
-        localStorage.setItem('vms_user', JSON.stringify(updatedUser));
-        localStorage.setItem('vms_token', `token_${foundUser.id}_${Date.now()}`);
-        
-        setIsLoading(false);
-        return true;
-      } else {
+      // First, sign in with Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: credentials.email,
+        password: credentials.password,
+      });
+
+      if (authError) {
+        console.error('Auth error:', authError);
         setIsLoading(false);
         return false;
       }
+
+      if (authData.user) {
+        // Fetch user profile to check role
+        const { data: userProfile, error: profileError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('auth_user_id', authData.user.id)
+          .single();
+
+        if (profileError || !userProfile) {
+          console.error('Profile error:', profileError);
+          await supabase.auth.signOut();
+          setIsLoading(false);
+          return false;
+        }
+
+        // Check if role matches
+        if (userProfile.role !== credentials.role) {
+          await supabase.auth.signOut();
+          setIsLoading(false);
+          return false;
+        }
+
+        // User profile will be set by the auth state change listener
+        setIsLoading(false);
+        return true;
+      }
+
+      setIsLoading(false);
+      return false;
     } catch (error) {
       console.error('Login error:', error);
       setIsLoading(false);
@@ -104,41 +126,45 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setIsLoading(true);
     
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Check if user already exists
-      const existingUser = mockUsers.find(u => u.email === credentials.email);
-      if (existingUser) {
+      // First, sign up with Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: credentials.email,
+        password: credentials.password,
+      });
+
+      if (authError) {
+        console.error('Auth signup error:', authError);
         setIsLoading(false);
         return false;
       }
-      
-      // Create new user
-      const newUser: User & { password: string } = {
-        id: Date.now().toString(),
-        name: credentials.name,
-        email: credentials.email,
-        password: credentials.password, // In production, this would be hashed
-        role: credentials.role,
-        department: credentials.department || 'General',
-        createdAt: new Date(),
-        lastLogin: new Date(),
-      };
-      
-      // Add to mock database
-      mockUsers.push(newUser);
-      
-      // Auto-login after signup
-      const { password, ...userWithoutPassword } = newUser;
-      setUser(userWithoutPassword);
-      
-      // Store in localStorage
-      localStorage.setItem('vms_user', JSON.stringify(userWithoutPassword));
-      localStorage.setItem('vms_token', `token_${newUser.id}_${Date.now()}`);
-      
+
+      if (authData.user) {
+        // Create user profile
+        const { error: profileError } = await supabase
+          .from('users')
+          .insert({
+            auth_user_id: authData.user.id,
+            email: credentials.email,
+            name: credentials.name,
+            role: credentials.role,
+            department: credentials.department || 'General',
+          });
+
+        if (profileError) {
+          console.error('Profile creation error:', profileError);
+          // Clean up auth user if profile creation fails
+          await supabase.auth.signOut();
+          setIsLoading(false);
+          return false;
+        }
+
+        // User profile will be set by the auth state change listener
+        setIsLoading(false);
+        return true;
+      }
+
       setIsLoading(false);
-      return true;
+      return false;
     } catch (error) {
       console.error('Signup error:', error);
       setIsLoading(false);
@@ -146,10 +172,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    await supabase.auth.signOut();
     setUser(null);
-    localStorage.removeItem('vms_user');
-    localStorage.removeItem('vms_token');
   };
 
   const value: AuthContextType = {

@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Camera, User, Phone, Mail, Building, Users, Clock, QrCode } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 
 interface VisitorRegistrationProps {
   onRegister: (visitor: any) => void;
@@ -115,41 +116,40 @@ const VisitorRegistration: React.FC<VisitorRegistrationProps> = ({ onRegister })
       return;
     }
 
-    const visitor = {
-      id: Date.now().toString(),
-      ...formData,
-      photo,
-      checkInTime: new Date(),
-      status: 'pending',
-      badgeNumber: `VIS-${Date.now().toString().slice(-6)}`,
-      qrCode: `QR-${Date.now()}`,
-    };
-
-    // For guards, show success message
-    if (user.role === 'guard') {
-      alert(`Visitor ${visitor.fullName} has been registered successfully! Approval request sent to ${visitor.hostEmployeeName}.`);
-    }
-    
-    // For admin, show admin-specific message
-    if (user.role === 'admin') {
-      alert(`Visitor ${visitor.fullName} has been registered by admin. Processing approval...`);
-    }
-
-    onRegister(visitor);
-    
-    // Reset form
-    setFormData({
-      fullName: '',
-      contactNumber: '',
-      email: '',
-      purpose: '',
-      hostEmployeeName: '',
-      hostDepartment: '',
-      companyName: '',
-    });
-    setPhoto(null);
+    registerVisitor();
   };
 
+  const registerVisitor = async () => {
+    try {
+      // Find host employee by name
+      const { data: hostEmployee } = await supabase
+        .from('users')
+        .select('id')
+        .eq('name', formData.hostEmployeeName)
+        .single();
+
+      const badgeNumber = `VIS-${Date.now().toString().slice(-6)}`;
+      const qrCode = `QR-${Date.now()}`;
+
+      // Insert visitor into database
+      const { data: visitor, error } = await supabase
+        .from('visitors')
+        .insert({
+          full_name: formData.fullName,
+          contact_number: formData.contactNumber,
+          email: formData.email,
+          purpose: formData.purpose,
+          host_employee_id: hostEmployee?.id,
+          host_employee_name: formData.hostEmployeeName,
+          host_department: formData.hostDepartment,
+          company_name: formData.companyName,
+          photo_url: photo, // In production, upload to storage first
+          badge_number: badgeNumber,
+          qr_code: qrCode,
+          status: 'pending',
+        })
+        .select()
+        .single();
   return (
     <div className="max-w-2xl mx-auto">
       <div className="bg-white rounded-lg shadow-sm border p-6">

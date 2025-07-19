@@ -1,6 +1,7 @@
 import React from 'react';
 import { Users, Clock, CheckCircle, AlertCircle, TrendingUp } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 
 interface DashboardProps {
   userRole?: 'admin' | 'employee' | 'guard';
@@ -8,32 +9,92 @@ interface DashboardProps {
 
 const Dashboard: React.FC<DashboardProps> = () => {
   const { user } = useAuth();
+  const [stats, setStats] = React.useState({
+    totalVisitors: 0,
+    pendingApprovals: 0,
+    approvedVisitors: 0,
+    currentlyInside: 0,
+  });
+  const [recentVisitors, setRecentVisitors] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
   
   if (!user) return null;
 
-  const stats = [
-    { label: 'Total Visitors Today', value: '24', icon: Users, color: 'bg-blue-500' },
-    { label: 'Pending Approvals', value: '3', icon: Clock, color: 'bg-yellow-500' },
-    { label: 'Approved Visitors', value: '18', icon: CheckCircle, color: 'bg-green-500' },
-    { label: 'Currently Inside', value: '12', icon: AlertCircle, color: 'bg-red-500' },
-  ];
+  React.useEffect(() => {
+    fetchDashboardData();
+  }, [user]);
 
-  const recentVisitors = [
-    { name: 'John Doe', company: 'Tech Corp', host: 'Alice Johnson', time: '10:30 AM', status: 'checked-in' },
-    { name: 'Sarah Wilson', company: 'Marketing Plus', host: 'Bob Smith', time: '11:15 AM', status: 'approved' },
-    { name: 'Mike Johnson', company: 'Consulting Ltd', host: 'Carol Davis', time: '9:45 AM', status: 'checked-out' },
-  ];
+  const fetchDashboardData = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Fetch visitors based on user role
+      let visitorsQuery = supabase
+        .from('visitors')
+        .select('*');
 
-  // Filter data based on user role
-  const getFilteredStats = () => {
-    if (user.role === 'employee') {
-      // Employee sees only their visitors
-      return stats.map(stat => ({
-        ...stat,
-        value: stat.label.includes('Pending') ? '1' : Math.floor(parseInt(stat.value) / 3).toString()
-      }));
+      if (user?.role === 'employee') {
+        visitorsQuery = visitorsQuery.eq('host_employee_id', user.id);
+      }
+
+      const { data: visitors, error: visitorsError } = await visitorsQuery
+        .gte('created_at', `${today}T00:00:00`)
+        .order('created_at', { ascending: false });
+
+      if (visitorsError) {
+        console.error('Error fetching visitors:', visitorsError);
+        return;
+      }
+
+      // Calculate stats
+      const totalVisitors = visitors?.length || 0;
+      const pendingApprovals = visitors?.filter(v => v.status === 'pending').length || 0;
+      const approvedVisitors = visitors?.filter(v => v.status === 'approved').length || 0;
+      const currentlyInside = visitors?.filter(v => v.status === 'checked-in').length || 0;
+
+      setStats({
+        totalVisitors,
+        pendingApprovals,
+        approvedVisitors,
+        currentlyInside,
+      });
+
+      // Set recent visitors (last 5)
+      setRecentVisitors(visitors?.slice(0, 5) || []);
+    } catch (error) {
+      console.error('Error in fetchDashboardData:', error);
+    } finally {
+      setLoading(false);
     }
-    return stats;
+  };
+
+  const statsConfig = [
+    { label: 'Total Visitors Today', value: stats.totalVisitors.toString(), icon: Users, color: 'bg-blue-500' },
+    { label: 'Pending Approvals', value: stats.pendingApprovals.toString(), icon: Clock, color: 'bg-yellow-500' },
+    { label: 'Approved Visitors', value: stats.approvedVisitors.toString(), icon: CheckCircle, color: 'bg-green-500' },
+    { label: 'Currently Inside', value: stats.currentlyInside.toString(), icon: AlertCircle, color: 'bg-red-500' },
+  ];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+        <span className="ml-3 text-gray-600">Loading dashboard...</span>
+      </div>
+    );
+  }
+
+  const getStatusDisplay = (status: string) => {
+    switch (status) {
+      case 'checked-in':
+        return { text: 'checked in', class: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' };
+      case 'approved':
+        return { text: 'approved', class: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' };
+      case 'checked-out':
+        return { text: 'checked out', class: 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300' };
+      default:
+        return { text: status, class: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300' };
+    }
   };
 
   return (
@@ -52,7 +113,7 @@ const Dashboard: React.FC<DashboardProps> = () => {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {getFilteredStats().map((stat, index) => {
+        {statsConfig.map((stat, index) => {
           const Icon = stat.icon;
           return (
             <div key={index} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 border border-gray-200 dark:border-gray-700 transition-colors">
@@ -83,19 +144,15 @@ const Dashboard: React.FC<DashboardProps> = () => {
             {recentVisitors.map((visitor, index) => (
               <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg transition-colors">
                 <div className="flex-1">
-                  <h3 className="font-medium text-gray-900 dark:text-white">{visitor.name}</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{visitor.company} • Host: {visitor.host}</p>
+                  <h3 className="font-medium text-gray-900 dark:text-white">{visitor.full_name}</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">{visitor.company_name || 'N/A'} • Host: {visitor.host_employee_name}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm text-gray-500 dark:text-gray-400">{visitor.time}</p>
-                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                    visitor.status === 'checked-in' 
-                      ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
-                      : visitor.status === 'approved'
-                      ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
-                  }`}>
-                    {visitor.status.replace('-', ' ')}
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {new Date(visitor.created_at).toLocaleTimeString()}
+                  </p>
+                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusDisplay(visitor.status).class}`}>
+                    {getStatusDisplay(visitor.status).text}
                   </span>
                 </div>
               </div>

@@ -1,64 +1,47 @@
 import React, { useState } from 'react';
 import { Search, Download, Filter, Users, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 const AllVisitors: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterDate, setFilterDate] = useState('');
+  const [visitors, setVisitors] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const visitors = [
-    {
-      id: '1',
-      fullName: 'John Doe',
-      contactNumber: '+1-555-0123',
-      email: 'john.doe@techcorp.com',
-      purpose: 'Business Meeting',
-      hostEmployeeName: 'Alice Johnson',
-      hostDepartment: 'Sales',
-      companyName: 'Tech Corp Solutions',
-      checkInTime: new Date('2024-01-15T10:30:00'),
-      checkOutTime: new Date('2024-01-15T12:00:00'),
-      status: 'checked-out' as const,
-      badgeNumber: 'VIS-001234',
-    },
-    {
-      id: '2',
-      fullName: 'Sarah Wilson',
-      contactNumber: '+1-555-0456',
-      email: 'sarah.wilson@marketingplus.com',
-      purpose: 'Interview',
-      hostEmployeeName: 'Bob Smith',
-      hostDepartment: 'Human Resources',
-      companyName: 'Marketing Plus',
-      checkInTime: new Date('2024-01-15T11:15:00'),
-      status: 'checked-in' as const,
-      badgeNumber: 'VIS-001235',
-    },
-    {
-      id: '3',
-      fullName: 'Mike Johnson',
-      contactNumber: '+1-555-0789',
-      email: 'mike.johnson@consulting.com',
-      purpose: 'Delivery',
-      hostEmployeeName: 'Carol Davis',
-      hostDepartment: 'Operations',
-      companyName: 'Consulting Ltd',
-      checkInTime: new Date('2024-01-15T09:45:00'),
-      checkOutTime: new Date('2024-01-15T10:15:00'),
-      status: 'checked-out' as const,
-      badgeNumber: 'VIS-001236',
-    },
-  ];
+  React.useEffect(() => {
+    fetchAllVisitors();
+  }, []);
+
+  const fetchAllVisitors = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('visitors')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching visitors:', error);
+        return;
+      }
+
+      setVisitors(data || []);
+    } catch (error) {
+      console.error('Error in fetchAllVisitors:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredVisitors = visitors.filter(visitor => {
-    const matchesSearch = visitor.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         visitor.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         visitor.hostEmployeeName.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = visitor.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (visitor.company_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         visitor.host_employee_name.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = filterStatus === 'all' || visitor.status === filterStatus;
     
     const matchesDate = !filterDate || 
-                       visitor.checkInTime.toISOString().split('T')[0] === filterDate;
+                       visitor.check_in_time.split('T')[0] === filterDate;
     
     return matchesSearch && matchesStatus && matchesDate;
   });
@@ -92,6 +75,15 @@ const AllVisitors: React.FC = () => {
         return 'bg-yellow-100 text-yellow-800';
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+        <span className="ml-3 text-gray-600">Loading visitors...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -173,28 +165,28 @@ const AllVisitors: React.FC = () => {
                 <tr key={visitor.id} className="hover:bg-gray-50">
                   <td className="py-4 px-6">
                     <div>
-                      <div className="font-medium text-gray-900">{visitor.fullName}</div>
-                      <div className="text-sm text-gray-600">{visitor.companyName}</div>
+                      <div className="font-medium text-gray-900">{visitor.full_name}</div>
+                      <div className="text-sm text-gray-600">{visitor.company_name || 'N/A'}</div>
                     </div>
                   </td>
                   <td className="py-4 px-6">
-                    <div className="text-sm text-gray-900">{visitor.contactNumber}</div>
+                    <div className="text-sm text-gray-900">{visitor.contact_number}</div>
                     <div className="text-sm text-gray-600">{visitor.email}</div>
                   </td>
                   <td className="py-4 px-6">
                     <div className="text-sm text-gray-900">{visitor.purpose}</div>
                   </td>
                   <td className="py-4 px-6">
-                    <div className="text-sm text-gray-900">{visitor.hostEmployeeName}</div>
-                    <div className="text-sm text-gray-600">{visitor.hostDepartment}</div>
+                    <div className="text-sm text-gray-900">{visitor.host_employee_name}</div>
+                    <div className="text-sm text-gray-600">{visitor.host_department}</div>
                   </td>
                   <td className="py-4 px-6">
                     <div className="text-sm text-gray-900">
-                      In: {visitor.checkInTime.toLocaleString()}
+                      In: {new Date(visitor.check_in_time).toLocaleString()}
                     </div>
-                    {visitor.checkOutTime && (
+                    {visitor.check_out_time && (
                       <div className="text-sm text-gray-600">
-                        Out: {visitor.checkOutTime.toLocaleString()}
+                        Out: {new Date(visitor.check_out_time).toLocaleString()}
                       </div>
                     )}
                   </td>
@@ -205,7 +197,7 @@ const AllVisitors: React.FC = () => {
                     </span>
                   </td>
                   <td className="py-4 px-6">
-                    <div className="text-sm text-gray-900">{visitor.badgeNumber}</div>
+                    <div className="text-sm text-gray-900">{visitor.badge_number}</div>
                   </td>
                 </tr>
               ))}
