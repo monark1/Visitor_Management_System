@@ -7,7 +7,7 @@ interface VisitorRegistrationProps {
   onRegister: (visitor: any) => void;
 }
 
-const VisitorRegistration: React.FC<VisitorRegistrationProps> = ({ onRegister }) => {
+const VisitorRegistration: React.FC<VisitorRegistrationProps> = async ({ onRegister }) => {
   const { user } = useAuth();
   
   if (!user) return null;
