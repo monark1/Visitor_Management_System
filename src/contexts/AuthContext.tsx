@@ -40,7 +40,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         .from('users')
         .select('*')
         .eq('auth_user_id', authUser.id)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Error fetching user profile:', error);
