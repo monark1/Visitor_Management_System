@@ -157,39 +157,20 @@ const PreApproval: React.FC = () => {
       // Generate QR code image
       const qrCodeImage = await generateQRCodeImage(qrData);
       
-      // Generate email template
-      const emailTemplate = generateQREmailTemplate(
+      // Send email
+      const result = await sendQREmail(
+        approval.id,
+        approval.visitor_email,
         approval.visitor_name,
-        'Tech Solutions Inc.', // Company name
         approval.host_employee_name,
-        new Date(approval.scheduled_date).toLocaleDateString(),
-        {
-          start: approval.start_time,
-          end: approval.end_time,
-        },
         approval.purpose,
-        new Date(approval.valid_until).toLocaleString(),
+        new Date(approval.scheduled_date).toLocaleDateString(),
+        approval.start_time,
+        approval.end_time,
         qrCodeImage
       );
       
-      // Send email
-      const result = await sendQREmail(approval.visitor_email, emailTemplate);
-      
       if (result.success) {
-        // Update approval status in database
-        const { error: finalUpdateError } = await supabase
-          .from('pre_approvals')
-          .update({
-            qr_sent: true,
-            qr_sent_at: new Date().toISOString(),
-            qr_sent_status: 'sent'
-          })
-          .eq('id', approval.id);
-
-        if (finalUpdateError) {
-          console.error('Error updating final QR status:', finalUpdateError);
-        }
-
         // Update local state
         setPreApprovals(prev => prev.map(pa => 
           pa.id === approval.id 
@@ -205,17 +186,9 @@ const PreApproval: React.FC = () => {
         setEmailStatus(prev => ({ ...prev, [approval.id]: 'sent' }));
         
         // Show success message
-        alert(`✅ QR Code successfully sent to ${approval.visitor_email}!\n\nEmail includes:\n• High-quality QR code image\n• Complete visit details\n• Security instructions\n• Valid until: ${new Date(approval.valid_until).toLocaleString()}\n\nMessage ID: ${result.messageId}`);
+        alert(`✅ QR Code successfully sent to ${approval.visitor_email}!\n\nEmail includes:\n• High-quality QR code image\n• Complete visit details\n• Security instructions\n• Valid until: ${new Date(approval.valid_until).toLocaleString()}\n\nMessage ID: ${result.messageId || 'N/A'}`);
         
       } else {
-        // Update failure status in database
-        await supabase
-          .from('pre_approvals')
-          .update({
-            qr_sent_status: 'failed'
-          })
-          .eq('id', approval.id);
-
         setEmailStatus(prev => ({ ...prev, [approval.id]: 'failed' }));
         alert(`❌ Failed to send QR code: ${result.error}\n\nPlease check the email address and try again.`);
       }
@@ -223,14 +196,6 @@ const PreApproval: React.FC = () => {
     } catch (error) {
       console.error('Failed to send QR code email:', error);
       
-      // Update failure status in database
-      await supabase
-        .from('pre_approvals')
-        .update({
-          qr_sent_status: 'failed'
-        })
-        .eq('id', approval.id);
-
       setEmailStatus(prev => ({ ...prev, [approval.id]: 'failed' }));
       alert(`❌ Error generating or sending QR code: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }

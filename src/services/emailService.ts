@@ -1,5 +1,4 @@
-// Email service for sending QR codes to visitors
-// In production, this would integrate with actual email services like SendGrid, Mailgun, etc.
+import { supabase } from '../lib/supabase';
 
 export interface EmailTemplate {
   to: string;
@@ -63,7 +62,7 @@ export const generateQREmailTemplate = (
           
           <div class="qr-container">
             <h3>🔍 Your Entry QR Code</h3>
-            <img src="cid:qrcode" alt="QR Code for Entry" style="max-width: 250px; height: auto;" />
+            <img src="data:image/png;base64,${qrCodeBase64}" alt="QR Code for Entry" style="max-width: 250px; height: auto;" />
             <p><small>Scan this code at the security gate</small></p>
           </div>
           
@@ -128,55 +127,49 @@ export const generateQREmailTemplate = (
 };
 
 export const sendQREmail = async (
+  preApprovalId: string,
   visitorEmail: string,
-  emailTemplate: EmailTemplate
+  visitorName: string,
+  hostName: string,
+  purpose: string,
+  scheduledDate: string,
+  startTime: string,
+  endTime: string,
+  qrCodeDataURL: string
 ): Promise<{ success: boolean; messageId?: string; error?: string }> => {
   try {
-    // Simulate email sending delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // In production, this would use actual email service:
-    /*
-    const nodemailer = require('nodemailer');
-    const transporter = nodemailer.createTransporter({
-      service: 'gmail', // or SendGrid, Mailgun, etc.
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-      }
+    // Call Supabase Edge Function for email sending
+    const { data, error } = await supabase.functions.invoke('send-qr-email', {
+      body: {
+        preApprovalId,
+        visitorEmail,
+        visitorName,
+        hostName,
+        purpose,
+        scheduledDate,
+        startTime,
+        endTime,
+        qrCodeDataURL,
+      },
     });
-    
-    const result = await transporter.sendMail({
-      from: process.env.FROM_EMAIL,
-      to: visitorEmail,
-      subject: emailTemplate.subject,
-      html: emailTemplate.html,
-      attachments: emailTemplate.attachments
-    });
-    
-    return { success: true, messageId: result.messageId };
-    */
-    
-    // Simulate successful email sending
-    console.log('📧 Email sent successfully!', {
-      to: visitorEmail,
-      subject: emailTemplate.subject,
-      attachments: emailTemplate.attachments?.length || 0,
-      timestamp: new Date().toISOString()
-    });
-    
-    // Random success/failure for demo (90% success rate)
-    const success = Math.random() > 0.1;
-    
-    if (success) {
+
+    if (error) {
+      console.error('Edge function error:', error);
+      return { 
+        success: false, 
+        error: error.message || 'Failed to send email via edge function' 
+      };
+    }
+
+    if (data?.success) {
       return { 
         success: true, 
-        messageId: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` 
+        messageId: data.messageId 
       };
     } else {
       return { 
         success: false, 
-        error: 'SMTP server temporarily unavailable. Please try again.' 
+        error: data?.error || 'Unknown error occurred' 
       };
     }
     
