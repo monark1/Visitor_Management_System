@@ -92,7 +92,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           .from('users')
           .select('*')
           .eq('auth_user_id', authData.user.id)
-          .maybesingle();
+          .maybeSingle();
 
         if (profileError || !userProfile) {
           console.error('Profile error:', profileError);
