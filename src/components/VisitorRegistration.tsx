@@ -128,6 +128,31 @@ const VisitorRegistration: React.FC<VisitorRegistrationProps> = ({ onRegister })
         .eq('name', formData.hostEmployeeName)
         .single();
 
+      if (error) {
+        throw error;
+      }
+
+      onRegister(visitor);
+      
+      // Reset form
+      setFormData({
+        fullName: '',
+        contactNumber: '',
+        email: '',
+        purpose: '',
+        hostEmployeeName: '',
+        hostDepartment: '',
+        companyName: '',
+      });
+      setPhoto(null);
+      
+      alert('Visitor registered successfully!');
+    } catch (error) {
+      console.error('Error registering visitor:', error);
+      alert('Failed to register visitor. Please try again.');
+    }
+  };
+
       const badgeNumber = `VIS-${Date.now().toString().slice(-6)}`;
       const qrCode = `QR-${Date.now()}`;
 
