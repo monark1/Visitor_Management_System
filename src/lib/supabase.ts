@@ -3,11 +3,25 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables. Please check your .env file.');
+// Check for environment variables and provide helpful error messages
+if (!supabaseUrl) {
+  console.error('VITE_SUPABASE_URL is missing from environment variables');
+  console.log('Please add VITE_SUPABASE_URL to your .env file');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+if (!supabaseAnonKey) {
+  console.error('VITE_SUPABASE_ANON_KEY is missing from environment variables');
+  console.log('Please add VITE_SUPABASE_ANON_KEY to your .env file');
+}
+
+// Create a fallback client if env vars are missing (for development)
+const fallbackUrl = 'https://placeholder.supabase.co';
+const fallbackKey = 'placeholder-key';
+
+export const supabase = createClient(
+  supabaseUrl || fallbackUrl, 
+  supabaseAnonKey || fallbackKey, 
+  {
   auth: {
     autoRefreshToken: true,
     persistSession: true,

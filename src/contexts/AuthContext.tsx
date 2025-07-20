@@ -12,11 +12,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     // Get initial session
     const getInitialSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        await fetchUserProfile(session.user);
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) {
+          console.error('Error getting session:', error);
+          setIsLoading(false);
+          return;
+        }
+        
+        if (session?.user) {
+          await fetchUserProfile(session.user);
+        } else {
+          setIsLoading(false);
+        }
+      } catch (error) {
+        console.error('Error in getInitialSession:', error);
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
 
     getInitialSession();
@@ -44,6 +56,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       if (error) {
         console.error('Error fetching user profile:', error);
+        setIsLoading(false);
         return;
       }
 
@@ -64,9 +77,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           .from('users')
           .update({ last_login: new Date().toISOString() })
           .eq('id', userProfile.id);
+      } else {
+        console.warn('No user profile found for auth user:', authUser.id);
+        setUser(null);
       }
     } catch (error) {
       console.error('Error in fetchUserProfile:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
