@@ -29,7 +29,7 @@ export interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (credentials: LoginCredentials) => Promise<boolean>;
-  signup: (credentials: SignupCredentials) => Promise<boolean>;
+  login: (credentials: LoginCredentials) => Promise<{ success: boolean; message?: string }>;
+  signup: (credentials: SignupCredentials) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
 }

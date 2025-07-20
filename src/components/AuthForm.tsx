@@ -60,7 +60,7 @@ const AuthForm: React.FC = () => {
     }
 
     try {
-      let success = false;
+      let result = { success: false, message: '' };
       
       if (isSignUp) {
         const signupData: SignupCredentials = {
@@ -70,9 +70,9 @@ const AuthForm: React.FC = () => {
           role: formData.role,
           department: formData.department || 'General',
         };
-        success = await signup(signupData);
-        if (!success) {
-          setError('Registration failed. Email may already be in use.');
+        result = await signup(signupData);
+        if (!result.success) {
+          setError(result.message || 'Registration failed. Please try again.');
         }
       } else {
         const loginData: LoginCredentials = {
@@ -80,9 +80,9 @@ const AuthForm: React.FC = () => {
           password: formData.password,
           role: formData.role,
         };
-        success = await login(loginData);
-        if (!success) {
-          setError('Invalid credentials. Please check your email, password, and role.');
+        result = await login(loginData);
+        if (!result.success) {
+          setError(result.message || 'Login failed. Please check your credentials.');
         }
       }
     } catch (err) {

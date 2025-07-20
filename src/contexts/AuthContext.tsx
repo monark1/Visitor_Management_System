@@ -70,7 +70,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const login = async (credentials: LoginCredentials): Promise<boolean> => {
+  const login = async (credentials: LoginCredentials): Promise<{ success: boolean; message?: string }> => {
     setIsLoading(true);
     
     try {
@@ -83,7 +83,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (authError) {
         console.error('Auth error:', authError);
         setIsLoading(false);
-        return false;
+        return { success: false, message: 'Invalid email or password. Please check your credentials.' };
       }
 
       if (authData.user) {
@@ -98,31 +98,31 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           console.error('Profile error:', profileError);
           await supabase.auth.signOut();
           setIsLoading(false);
-          return false;
+          return { success: false, message: 'Login failed. Your user profile could not be found or is incomplete. Please contact support.' };
         }
 
         // Check if role matches
         if (userProfile.role !== credentials.role) {
           await supabase.auth.signOut();
           setIsLoading(false);
-          return false;
+          return { success: false, message: `Access denied. You are not registered as ${credentials.role}. Please select the correct role.` };
         }
 
         // User profile will be set by the auth state change listener
         setIsLoading(false);
-        return true;
+        return { success: true };
       }
 
       setIsLoading(false);
-      return false;
+      return { success: false, message: 'Login failed. Please try again.' };
     } catch (error) {
       console.error('Login error:', error);
       setIsLoading(false);
-      return false;
+      return { success: false, message: 'An unexpected error occurred. Please try again.' };
     }
   };
 
-  const signup = async (credentials: SignupCredentials): Promise<boolean> => {
+  const signup = async (credentials: SignupCredentials): Promise<{ success: boolean; message?: string }> => {
     setIsLoading(true);
     
     try {
@@ -135,7 +135,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (authError) {
         console.error('Auth signup error:', authError);
         setIsLoading(false);
-        return false;
+        
+        if (authError.message?.includes('User already registered') || authError.message?.includes('already been registered')) {
+          return { success: false, message: 'This email is already registered. Please sign in instead.' };
+        }
+        
+        return { success: false, message: authError.message || 'Registration failed. Please try again.' };
       }
 
       if (authData.user) {
@@ -155,20 +160,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           // Clean up auth user if profile creation fails
           await supabase.auth.signOut();
           setIsLoading(false);
-          return false;
+          return { success: false, message: 'Registration failed. Could not create user profile. Please try again.' };
         }
 
         // User profile will be set by the auth state change listener
         setIsLoading(false);
-        return true;
+        return { success: true, message: 'Account created successfully! You can now sign in.' };
       }
 
       setIsLoading(false);
-      return false;
+      return { success: false, message: 'Registration failed. Please try again.' };
     } catch (error) {
       console.error('Signup error:', error);
       setIsLoading(false);
-      return false;
+      return { success: false, message: 'An unexpected error occurred during registration. Please try again.' };
     }
   };
 
