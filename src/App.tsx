@@ -21,8 +21,22 @@ const AppContent: React.FC = () => {
           <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600">Loading VMS...</p>
           <p className="text-sm text-gray-500 mt-2">
-            {!import.meta.env.VITE_SUPABASE_URL ? 'Missing Supabase configuration' : 'Connecting to database...'}
+            {!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY 
+              ? '⚠️ Missing Supabase configuration - Check .env file' 
+              : 'Connecting to database...'}
           </p>
+          {(!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) && (
+            <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-left max-w-md">
+              <p className="text-sm text-yellow-800 font-semibold mb-2">Required .env file:</p>
+              <pre className="text-xs text-yellow-700 bg-yellow-100 p-2 rounded">
+{`VITE_SUPABASE_URL=your_project_url
+VITE_SUPABASE_ANON_KEY=your_anon_key`}
+              </pre>
+              <p className="text-xs text-yellow-600 mt-2">
+                Get these from your Supabase project settings
+              </p>
+            </div>
+          )}
         </div>
       </div>
     );

@@ -12,8 +12,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     // Get initial session
     const getInitialSession = async () => {
+      const timeout = setTimeout(() => {
+        console.error('Supabase connection timeout - check your environment variables');
+        setIsLoading(false);
+      }, 10000); // 10 second timeout
+
       try {
+        // Check if environment variables are available
+        if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+          console.error('Missing Supabase environment variables');
+          clearTimeout(timeout);
+          setIsLoading(false);
+          return;
+        }
+
         const { data: { session }, error } = await supabase.auth.getSession();
+        clearTimeout(timeout);
+        
         if (error) {
           console.error('Error getting session:', error);
           setIsLoading(false);
@@ -27,6 +42,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
       } catch (error) {
         console.error('Error in getInitialSession:', error);
+        clearTimeout(timeout);
         setIsLoading(false);
       }
     };
@@ -34,16 +50,28 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     getInitialSession();
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        await fetchUserProfile(session.user);
-      } else {
-        setUser(null);
-      }
+    let subscription: any;
+    
+    try {
+      const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (session?.user) {
+          await fetchUserProfile(session.user);
+        } else {
+          setUser(null);
+        }
+        setIsLoading(false);
+      });
+      subscription = data;
+    } catch (error) {
+      console.error('Error setting up auth listener:', error);
       setIsLoading(false);
-    });
+    }
 
-    return () => subscription.unsubscribe();
+    return () => {
+      if (subscription) {
+        subscription.unsubscribe();
+      }
+    };
   }, []);
 
   const fetchUserProfile = async (authUser: SupabaseUser) => {
