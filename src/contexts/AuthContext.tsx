@@ -57,29 +57,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     getInitialSession();
 
     // Listen for auth changes
-    let subscription: any;
-    
-    try {
-      const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
-        console.log('🔄 Auth state changed:', event);
-        if (session?.user) {
-          await fetchUserProfile(session.user);
-        } else {
-          setUser(null);
-        }
-        setIsLoading(false);
-      });
-      subscription = data;
-    } catch (error) {
-      console.error('❌ Error setting up auth listener:', error);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('🔄 Auth state changed:', event);
+      if (session?.user) {
+        await fetchUserProfile(session.user);
+      } else {
+        setUser(null);
+      }
       setIsLoading(false);
-    }
-
+    });
+    
     return () => {
       clearTimeout(safetyTimeout);
-      if (subscription) {
-        subscription.unsubscribe();
-      }
+      subscription.unsubscribe();
     };
   }, []);
 
