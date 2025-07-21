@@ -12,20 +12,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     // Get initial session
     const getInitialSession = async () => {
-      console.log('🔄 Starting authentication check...');
-      console.log('📡 Supabase URL:', import.meta.env.VITE_SUPABASE_URL ? 'Present' : 'Missing');
-      console.log('🔑 Supabase Key:', import.meta.env.VITE_SUPABASE_ANON_KEY ? 'Present' : 'Missing');
-
       try {
-        // Set a timeout to prevent infinite loading
-        const timeoutId = setTimeout(() => {
-          console.error('⏰ Supabase connection timeout after 8 seconds');
+        console.log('🔄 Starting authentication check...');
+        console.log('📡 Supabase URL:', import.meta.env.VITE_SUPABASE_URL ? 'Present' : 'Missing');
+        console.log('🔑 Supabase Key:', import.meta.env.VITE_SUPABASE_ANON_KEY ? 'Present' : 'Missing');
+        
+        // Check if environment variables are missing
+        if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+          console.error('❌ Missing Supabase environment variables');
           setIsLoading(false);
-        }, 8000);
+          return;
+        }
 
         console.log('🔍 Getting Supabase session...');
         const { data: { session }, error } = await supabase.auth.getSession();
-        clearTimeout(timeoutId);
         
         if (error) {
           console.error('❌ Error getting session:', error.message);
@@ -48,12 +48,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     };
 
-    // Add a safety timeout as backup
-    const safetyTimeout = setTimeout(() => {
-      console.error('🚨 Safety timeout triggered - forcing app to load');
-      setIsLoading(false);
-    }, 12000);
-
     getInitialSession();
 
     // Listen for auth changes
@@ -68,7 +62,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
     
     return () => {
-      clearTimeout(safetyTimeout);
       subscription.unsubscribe();
     };
   }, []);

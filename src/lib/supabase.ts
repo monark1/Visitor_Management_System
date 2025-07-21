@@ -3,28 +3,28 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Validate environment variables
-console.log('🔧 Supabase Configuration Check:');
-console.log('📍 URL:', supabaseUrl ? '✅ Present' : '❌ Missing');
-console.log('🔑 Key:', supabaseAnonKey ? '✅ Present' : '❌ Missing');
+// Validate environment variables and provide helpful error messages
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('❌ Missing Supabase environment variables!');
+  console.error('Please check your .env file contains:');
+  console.error('VITE_SUPABASE_URL=https://your-project-id.supabase.co');
+  console.error('VITE_SUPABASE_ANON_KEY=your-anon-key-here');
+  console.error('Restart the dev server after adding these variables.');
+}
 
 export const supabase = createClient(
-  supabaseUrl!, 
-  supabaseAnonKey!, 
+  supabaseUrl || 'https://placeholder.supabase.co', 
+  supabaseAnonKey || 'placeholder-key', 
   {
     auth: {
       autoRefreshToken: true,
       persistSession: true,
-      detectSessionInUrl: true,
-      flowType: 'pkce'
+      detectSessionInUrl: false
     },
-    global: {
-      headers: {
-        'X-Client-Info': 'vms-pro'
+    realtime: {
+      params: {
+        eventsPerSecond: 2
       }
-    },
-    db: {
-      schema: 'public'
     }
 });
 
