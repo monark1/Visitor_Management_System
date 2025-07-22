@@ -13,37 +13,28 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // Get initial session
     const getInitialSession = async () => {
       try {
-        console.log('🔄 Starting authentication check...');
-        console.log('📡 Supabase URL:', import.meta.env.VITE_SUPABASE_URL ? 'Present' : 'Missing');
-        console.log('🔑 Supabase Key:', import.meta.env.VITE_SUPABASE_ANON_KEY ? 'Present' : 'Missing');
-        
         // Check if environment variables are missing
         if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
-          console.error('❌ Missing Supabase environment variables');
+          console.error('Missing Supabase environment variables');
           setIsLoading(false);
           return;
         }
 
-        console.log('🔍 Getting Supabase session...');
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
-          console.error('❌ Error getting session:', error.message);
+          console.error('Error getting session:', error.message);
           setIsLoading(false);
           return;
         }
         
-        console.log('✅ Session check complete:', session ? 'User found' : 'No active session');
-        
         if (session?.user) {
-          console.log('👤 Fetching user profile for:', session.user.email);
           await fetchUserProfile(session.user);
         } else {
-          console.log('🚪 No active session, showing login form');
           setIsLoading(false);
         }
       } catch (error) {
-        console.error('💥 Critical error in getInitialSession:', error);
+        console.error('Critical error in getInitialSession:', error);
         setIsLoading(false);
       }
     };
@@ -52,13 +43,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('🔄 Auth state changed:', event);
       if (session?.user) {
         await fetchUserProfile(session.user);
       } else {
         setUser(null);
+        setIsLoading(false);
       }
-      setIsLoading(false);
     });
     
     return () => {
@@ -68,7 +58,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const fetchUserProfile = async (authUser: SupabaseUser) => {
     try {
-      console.log('🔍 Fetching profile for user ID:', authUser.id);
       let { data: userProfile, error } = await supabase
         .from('users')
         .select('*')
@@ -76,11 +65,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         .single();
 
       if (error) {
-        console.error('❌ Error fetching user profile:', error);
+        console.error('Error fetching user profile:', error);
         
         // If user profile doesn't exist, create one
         if (error.code === 'PGRST116') {
-          console.log('🔧 Creating missing user profile...');
           const { data: newProfile, error: createError } = await supabase
             .from('users')
             .insert({
@@ -94,7 +82,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             .single();
             
           if (createError) {
-            console.error('❌ Failed to create user profile:', createError);
+            console.error('Failed to create user profile:', createError);
             setUser(null);
             setIsLoading(false);
             return;
@@ -109,7 +97,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       if (userProfile) {
-        console.log('✅ User profile found:', userProfile.name, `(${userProfile.role})`);
         const userData: User = {
           id: userProfile.id,
           name: userProfile.name,
@@ -128,17 +115,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           .eq('id', userProfile.id);
         
         if (updateError) {
-          console.warn('⚠️ Could not update last login:', updateError.message);
+          console.warn('Could not update last login:', updateError.message);
         }
       } else {
-        console.warn('⚠️ No user profile found for auth user:', authUser.id);
+        console.warn('No user profile found for auth user:', authUser.id);
         setUser(null);
       }
     } catch (error) {
-      console.error('💥 Error in fetchUserProfile:', error);
+      console.error('Error in fetchUserProfile:', error);
       setUser(null);
     } finally {
-      console.log('✅ Authentication check complete');
       setIsLoading(false);
     }
   };
