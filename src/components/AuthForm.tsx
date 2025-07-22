@@ -201,24 +201,26 @@ const AuthForm: React.FC = () => {
               </div>
             </div>
 
-            {/* Role */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                <Shield className="w-4 h-4 inline mr-2" />
-                Role *
-              </label>
-              <select
-                name="role"
-                value={formData.role}
-                onChange={handleInputChange}
-                required
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              >
-                <option value="employee">Employee</option>
-                <option value="guard">Security Guard</option>
-                <option value="admin">Administrator</option>
-              </select>
-            </div>
+            {/* Role (Sign Up Only) */}
+            {isSignUp && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <Shield className="w-4 h-4 inline mr-2" />
+                  Role *
+                </label>
+                <select
+                  name="role"
+                  value={formData.role}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                >
+                  <option value="employee">Employee</option>
+                  <option value="guard">Security Guard</option>
+                  <option value="admin">Administrator</option>
+                </select>
+              </div>
+            )}
 
             {/* Department (Sign Up Only) */}
             {isSignUp && (

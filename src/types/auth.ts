@@ -17,11 +17,11 @@ export interface AuthState {
 export interface LoginCredentials {
   email: string;
   password: string;
-  role: 'admin' | 'employee' | 'guard';
 }
 
 export interface SignupCredentials extends LoginCredentials {
   name: string;
+  role: 'admin' | 'employee' | 'guard';
   department?: string;
 }
 

@@ -160,7 +160,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       if (authData.user) {
-        // Fetch user profile to check role
+        // Fetch user profile (role will be automatically loaded from database)
         const { data: userProfile, error: profileError } = await supabase
           .from('users')
           .select('*')
@@ -174,14 +174,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           return { success: false, message: 'Login failed. Your user profile could not be found or is incomplete. Please contact support.' };
         }
 
-        // Check if role matches
-        if (userProfile.role !== credentials.role) {
-          await supabase.auth.signOut();
-          setIsLoading(false);
-          return { success: false, message: `Access denied. You are not registered as ${credentials.role}. Please select the correct role.` };
-        }
-
-        // User profile will be set by the auth state change listener
+        // User profile will be set by the auth state change listener with correct role from database
+        console.log('✅ Login successful for user:', userProfile.name, `(${userProfile.role})`);
         setIsLoading(false);
         return { success: true };
       }
