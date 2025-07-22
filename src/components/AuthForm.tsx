@@ -124,9 +124,8 @@ const AuthForm: React.FC = () => {
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
               <h4 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">Demo Credentials:</h4>
               <div className="text-sm text-blue-800 dark:text-blue-300 space-y-1">
-                <p><strong>Admin:</strong> admin@company.com / admin123</p>
-                <p><strong>Employee:</strong> john@company.com / employee123</p>
-                <p><strong>Guard:</strong> guard@company.com / guard123</p>
+                <p><strong>Note:</strong> Create an account first with your desired role</p>
+                <p>Then sign in with your email and password</p>
               </div>
             </div>
           )}

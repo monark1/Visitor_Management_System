@@ -67,28 +67,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (error) {
         console.error('Error fetching user profile:', error);
         
-        // If user profile doesn't exist, create one
+        // If user profile doesn't exist, this is an error - don't create a default profile
         if (error.code === 'PGRST116') {
-          const { data: newProfile, error: createError } = await supabase
-            .from('users')
-            .insert({
-              auth_user_id: authUser.id,
-              email: authUser.email || '',
-              name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'User',
-              role: 'employee',
-              department: 'General'
-            })
-            .select()
-            .single();
-            
-          if (createError) {
-            console.error('Failed to create user profile:', createError);
-            setUser(null);
-            setIsLoading(false);
-            return;
-          }
-          
-          userProfile = newProfile;
+          console.error('User profile not found for authenticated user');
+          // Sign out the user since they don't have a proper profile
+          await supabase.auth.signOut();
+          setUser(null);
+          setIsLoading(false);
+          return;
         } else {
           setUser(null);
           setIsLoading(false);
