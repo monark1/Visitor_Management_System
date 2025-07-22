@@ -142,15 +142,15 @@ const PreApproval: React.FC = () => {
       // Generate QR code data
       const qrData = generateQRCodeData({
         id: approval.id,
-        visitorName: approval.visitor_name,
-        visitorEmail: approval.visitor_email,
+        visitorName: approval.visitor_name || '',
+        visitorEmail: approval.visitor_email || '',
         purpose: approval.purpose,
         scheduledDate: new Date(approval.scheduled_date),
         timeWindow: {
           startTime: approval.start_time,
           endTime: approval.end_time,
         },
-        hostEmployeeName: approval.host_employee_name,
+        hostEmployeeName: approval.host_employee_name || '',
         validUntil: new Date(approval.valid_until),
       });
       
@@ -198,6 +198,13 @@ const PreApproval: React.FC = () => {
       
       setEmailStatus(prev => ({ ...prev, [approval.id]: 'failed' }));
       alert(`❌ Error generating or sending QR code: ${error instanceof Error ? error.message : 'Unknown error'}`);
+     } finally {
+       // Update database status based on final result
+       const finalStatus = emailStatus[approval.id] === 'sent' ? 'sent' : 'failed';
+       await supabase
+         .from('pre_approvals')
+         .update({ qr_sent_status: finalStatus })
+         .eq('id', approval.id);
     }
   };
 

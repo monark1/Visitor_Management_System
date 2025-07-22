@@ -34,7 +34,8 @@ const Dashboard: React.FC<DashboardProps> = () => {
         .select('*');
 
       if (user?.role === 'employee') {
-        visitorsQuery = visitorsQuery.eq('host_employee_id', user.id);
+        // For employees, show visitors they are hosting
+        visitorsQuery = visitorsQuery.or(`host_employee_id.eq.${user.id},host_employee_name.eq.${user.name}`);
       }
 
       const { data: visitors, error: visitorsError } = await visitorsQuery
@@ -43,6 +44,14 @@ const Dashboard: React.FC<DashboardProps> = () => {
 
       if (visitorsError) {
         console.error('Error fetching visitors:', visitorsError);
+        // Set empty data instead of returning early
+        setStats({
+          totalVisitors: 0,
+          pendingApprovals: 0,
+          approvedVisitors: 0,
+          currentlyInside: 0,
+        });
+        setRecentVisitors([]);
         return;
       }
 
@@ -63,6 +72,14 @@ const Dashboard: React.FC<DashboardProps> = () => {
       setRecentVisitors(visitors?.slice(0, 5) || []);
     } catch (error) {
       console.error('Error in fetchDashboardData:', error);
+      // Set default values on error
+      setStats({
+        totalVisitors: 0,
+        pendingApprovals: 0,
+        approvedVisitors: 0,
+        currentlyInside: 0,
+      });
+      setRecentVisitors([]);
     } finally {
       setLoading(false);
     }

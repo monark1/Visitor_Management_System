@@ -26,16 +26,16 @@ const generateSignature = (data: Omit<QRCodeData, 'signature'>): string => {
 export const generateQRCodeData = (preApproval: any): QRCodeData => {
   const qrData: Omit<QRCodeData, 'signature'> = {
     visitor_id: preApproval.id,
-    name: preApproval.visitorName,
-    email: preApproval.visitorEmail,
-    host_employee: preApproval.hostEmployeeName,
+    name: preApproval.visitorName || '',
+    email: preApproval.visitorEmail || '',
+    host_employee: preApproval.hostEmployeeName || '',
     purpose: preApproval.purpose,
-    scheduled_date: preApproval.scheduledDate.toISOString().split('T')[0],
+    scheduled_date: preApproval.scheduledDate ? preApproval.scheduledDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
     time_window: {
-      start: preApproval.timeWindow.startTime,
-      end: preApproval.timeWindow.endTime,
+      start: preApproval.timeWindow?.startTime || '09:00',
+      end: preApproval.timeWindow?.endTime || '17:00',
     },
-    valid_until: preApproval.validUntil.toISOString(),
+    valid_until: preApproval.validUntil ? preApproval.validUntil.toISOString() : new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     created_at: new Date().toISOString(),
   };
 

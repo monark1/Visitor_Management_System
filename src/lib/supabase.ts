@@ -19,11 +19,17 @@ export const supabase = createClient(
     auth: {
       autoRefreshToken: true,
       persistSession: true,
-      detectSessionInUrl: false
+      detectSessionInUrl: false,
+      flowType: 'pkce'
     },
     realtime: {
       params: {
         eventsPerSecond: 2
+      }
+    },
+    global: {
+      headers: {
+        'X-Client-Info': 'vms-pro@1.0.0'
       }
     }
 });

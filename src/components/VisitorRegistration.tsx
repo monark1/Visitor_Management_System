@@ -7,7 +7,7 @@ interface VisitorRegistrationProps {
   onRegister: (visitor: any) => void;
 }
 
-const VisitorRegistration: React.FC<VisitorRegistrationProps> = async ({ onRegister }) => {
+const VisitorRegistration: React.FC<VisitorRegistrationProps> = ({ onRegister }) => {
   const { user } = useAuth();
   
   if (!user) return null;
@@ -25,6 +25,7 @@ const VisitorRegistration: React.FC<VisitorRegistrationProps> = async ({ onRegis
   const [photo, setPhoto] = useState<string | null>(null);
   const [showCamera, setShowCamera] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [loading, setLoading] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -120,12 +121,40 @@ const VisitorRegistration: React.FC<VisitorRegistrationProps> = async ({ onRegis
   };
 
   const registerVisitor = async () => {
+    setLoading(true);
     try {
       // Find host employee by name
-      const { data: hostEmployee } = await supabase
+      const { data: hostEmployee, error: hostError } = await supabase
         .from('users')
         .select('id')
         .eq('name', formData.hostEmployeeName)
+        .single();
+
+      if (hostError) {
+        console.warn('Host employee not found, proceeding without host_employee_id');
+      }
+
+      const badgeNumber = `VIS-${Date.now().toString().slice(-6)}`;
+      const qrCode = `QR-${Date.now()}`;
+
+      // Insert visitor into database
+      const { data: visitor, error } = await supabase
+        .from('visitors')
+        .insert({
+          full_name: formData.fullName,
+          contact_number: formData.contactNumber,
+          email: formData.email,
+          purpose: formData.purpose,
+          host_employee_id: hostEmployee?.id || null,
+          host_employee_name: formData.hostEmployeeName,
+          host_department: formData.hostDepartment,
+          company_name: formData.companyName || null,
+          photo_url: photo, // In production, upload to storage first
+          badge_number: badgeNumber,
+          qr_code: qrCode,
+          status: 'pending',
+        })
+        .select()
         .single();
 
       if (error) {
@@ -150,54 +179,34 @@ const VisitorRegistration: React.FC<VisitorRegistrationProps> = async ({ onRegis
     } catch (error) {
       console.error('Error registering visitor:', error);
       alert('Failed to register visitor. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
-      const badgeNumber = `VIS-${Date.now().toString().slice(-6)}`;
-      const qrCode = `QR-${Date.now()}`;
-
-      // Insert visitor into database
-      const { data: visitor, error } = await supabase
-        .from('visitors')
-        .insert({
-          full_name: formData.fullName,
-          contact_number: formData.contactNumber,
-          email: formData.email,
-          purpose: formData.purpose,
-          host_employee_id: hostEmployee?.id,
-          host_employee_name: formData.hostEmployeeName,
-          host_department: formData.hostDepartment,
-          company_name: formData.companyName,
-          photo_url: photo, // In production, upload to storage first
-          badge_number: badgeNumber,
-          qr_code: qrCode,
-          status: 'pending',
-        })
-        .select()
-        .single();
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="bg-white rounded-lg shadow-sm border p-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Visitor Registration</h1>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Visitor Registration</h1>
         
         {user.role === 'guard' && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <p className="text-blue-800 text-sm">👮‍♂️ Security Guard Mode: Register visitors upon arrival</p>
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+            <p className="text-blue-800 dark:text-blue-300 text-sm">👮‍♂️ Security Guard Mode: Register visitors upon arrival</p>
           </div>
         )}
         
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Photo Capture Section */}
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-            <h3 className="text-lg font-semibold mb-4 flex items-center justify-center">
+          <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center">
+            <h3 className="text-lg font-semibold mb-4 flex items-center justify-center text-gray-900 dark:text-white">
               <Camera className="w-5 h-5 mr-2" />
               Mandatory Photo Capture
             </h3>
             
             {!photo && !showCamera && (
               <div className="space-y-4">
-                <div className="w-48 h-48 bg-gray-100 rounded-lg mx-auto flex items-center justify-center">
-                  <Camera className="w-12 h-12 text-gray-400" />
+                <div className="w-48 h-48 bg-gray-100 dark:bg-gray-700 rounded-lg mx-auto flex items-center justify-center">
+                  <Camera className="w-12 h-12 text-gray-400 dark:text-gray-500" />
                 </div>
                 <button
                   type="button"
@@ -269,7 +278,7 @@ const VisitorRegistration: React.FC<VisitorRegistrationProps> = async ({ onRegis
           {/* Personal Information */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 <User className="w-4 h-4 inline mr-2" />
                 Full Name *
               </label>
@@ -279,13 +288,13 @@ const VisitorRegistration: React.FC<VisitorRegistrationProps> = async ({ onRegis
                 value={formData.fullName}
                 onChange={handleInputChange}
                 required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 placeholder="Enter visitor's full name"
               />
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 <Phone className="w-4 h-4 inline mr-2" />
                 Contact Number *
               </label>
@@ -295,13 +304,13 @@ const VisitorRegistration: React.FC<VisitorRegistrationProps> = async ({ onRegis
                 value={formData.contactNumber}
                 onChange={handleInputChange}
                 required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 placeholder="+1-555-0123"
               />
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 <Mail className="w-4 h-4 inline mr-2" />
                 Email Address *
               </label>
@@ -311,13 +320,13 @@ const VisitorRegistration: React.FC<VisitorRegistrationProps> = async ({ onRegis
                 value={formData.email}
                 onChange={handleInputChange}
                 required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 placeholder="visitor@example.com"
               />
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 <Building className="w-4 h-4 inline mr-2" />
                 Company/Organization
               </label>
@@ -326,7 +335,7 @@ const VisitorRegistration: React.FC<VisitorRegistrationProps> = async ({ onRegis
                 name="companyName"
                 value={formData.companyName}
                 onChange={handleInputChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 placeholder="Company name (optional)"
               />
             </div>
@@ -335,7 +344,7 @@ const VisitorRegistration: React.FC<VisitorRegistrationProps> = async ({ onRegis
           {/* Visit Details */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 <Clock className="w-4 h-4 inline mr-2" />
                 Purpose of Visit *
               </label>
@@ -344,7 +353,7 @@ const VisitorRegistration: React.FC<VisitorRegistrationProps> = async ({ onRegis
                 value={formData.purpose}
                 onChange={handleInputChange}
                 required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               >
                 <option value="">Select purpose</option>
                 {purposes.map(purpose => (
@@ -354,7 +363,7 @@ const VisitorRegistration: React.FC<VisitorRegistrationProps> = async ({ onRegis
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 <Users className="w-4 h-4 inline mr-2" />
                 Host Department *
               </label>
@@ -363,7 +372,7 @@ const VisitorRegistration: React.FC<VisitorRegistrationProps> = async ({ onRegis
                 value={formData.hostDepartment}
                 onChange={handleInputChange}
                 required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               >
                 <option value="">Select department</option>
                 {departments.map(dept => (
@@ -373,7 +382,7 @@ const VisitorRegistration: React.FC<VisitorRegistrationProps> = async ({ onRegis
             </div>
             
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 <User className="w-4 h-4 inline mr-2" />
                 Host Employee Name *
               </label>
@@ -383,15 +392,15 @@ const VisitorRegistration: React.FC<VisitorRegistrationProps> = async ({ onRegis
                 value={formData.hostEmployeeName}
                 onChange={handleInputChange}
                 required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 placeholder="Name of the employee to visit"
               />
             </div>
           </div>
 
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h4 className="font-semibold text-blue-900 mb-2">Registration Process:</h4>
-            <ol className="text-sm text-blue-800 space-y-1">
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <h4 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">Registration Process:</h4>
+            <ol className="text-sm text-blue-800 dark:text-blue-300 space-y-1">
               <li>1. Capture visitor photo (mandatory)</li>
               <li>2. Fill in all required information</li>
               <li>3. Submit registration form</li>
@@ -402,14 +411,19 @@ const VisitorRegistration: React.FC<VisitorRegistrationProps> = async ({ onRegis
 
           <button
             type="submit"
-            disabled={!photo}
+            disabled={!photo || loading}
             className={`w-full py-3 rounded-lg font-medium transition-colors ${
-              photo 
+              photo && !loading
                 ? 'bg-blue-600 text-white hover:bg-blue-700' 
                 : 'bg-gray-300 text-gray-500 cursor-not-allowed'
             }`}
           >
-            {photo ? 'Register Visitor' : 'Photo Required to Register'}
+            {loading ? (
+              <div className="flex items-center justify-center">
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                Registering...
+              </div>
+            ) : photo ? 'Register Visitor' : 'Photo Required to Register'}
           </button>
         </form>
       </div>

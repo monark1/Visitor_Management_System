@@ -69,16 +69,43 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const fetchUserProfile = async (authUser: SupabaseUser) => {
     try {
       console.log('🔍 Fetching profile for user ID:', authUser.id);
-      const { data: userProfile, error } = await supabase
+      let { data: userProfile, error } = await supabase
         .from('users')
         .select('*')
         .eq('auth_user_id', authUser.id)
-        .maybeSingle();
+        .single();
 
       if (error) {
-        console.error('❌ Error fetching user profile:', error.message);
-        setIsLoading(false);
-        return;
+        console.error('❌ Error fetching user profile:', error);
+        
+        // If user profile doesn't exist, create one
+        if (error.code === 'PGRST116') {
+          console.log('🔧 Creating missing user profile...');
+          const { data: newProfile, error: createError } = await supabase
+            .from('users')
+            .insert({
+              auth_user_id: authUser.id,
+              email: authUser.email || '',
+              name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'User',
+              role: 'employee',
+              department: 'General'
+            })
+            .select()
+            .single();
+            
+          if (createError) {
+            console.error('❌ Failed to create user profile:', createError);
+            setUser(null);
+            setIsLoading(false);
+            return;
+          }
+          
+          userProfile = newProfile;
+        } else {
+          setUser(null);
+          setIsLoading(false);
+          return;
+        }
       }
 
       if (userProfile) {
@@ -109,6 +136,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     } catch (error) {
       console.error('💥 Error in fetchUserProfile:', error);
+      setUser(null);
     } finally {
       console.log('✅ Authentication check complete');
       setIsLoading(false);

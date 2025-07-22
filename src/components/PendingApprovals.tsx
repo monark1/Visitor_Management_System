@@ -30,19 +30,22 @@ const PendingApprovals: React.FC<PendingApprovalsProps> = () => {
 
       // Filter based on user role
       if (user?.role === 'employee') {
-        query = query.eq('host_employee_id', user.id);
+        // For employees, show visitors they are hosting (by ID or name)
+        query = query.or(`host_employee_id.eq.${user.id},host_employee_name.eq.${user.name}`);
       }
 
       const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) {
         console.error('Error fetching pending visitors:', error);
+        setPendingVisitors([]);
         return;
       }
 
       setPendingVisitors(data || []);
     } catch (error) {
       console.error('Error in fetchPendingVisitors:', error);
+      setPendingVisitors([]);
     } finally {
       setLoading(false);
     }

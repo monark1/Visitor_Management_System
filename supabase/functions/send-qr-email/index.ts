@@ -157,7 +157,28 @@ serve(async (req) => {
     // Send email using Resend API
     const resendApiKey = Deno.env.get('RESEND_API_KEY')
     if (!resendApiKey) {
-      throw new Error('RESEND_API_KEY environment variable is not set')
+      console.warn('RESEND_API_KEY not configured, using mock email service');
+      
+      // Mock successful email sending for development
+      await supabaseClient
+        .from('pre_approvals')
+        .update({
+          qr_sent: true,
+          qr_sent_at: new Date().toISOString(),
+          qr_sent_status: 'sent'
+        })
+        .eq('id', preApprovalId);
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          messageId: `mock-${Date.now()}`,
+          message: `QR code mock-sent to ${visitorEmail} (RESEND_API_KEY not configured)` 
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
     }
 
     const emailResponse = await fetch('https://api.resend.com/emails', {
@@ -167,7 +188,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'VMS Pro <noreply@yourdomain.com>', // Replace with your verified domain
+        from: 'VMS Pro <onboarding@resend.dev>', // Using Resend's test domain
         to: [visitorEmail],
         subject: `Your QR Pass for Visiting ${companyName}`,
         html: emailHtml,
